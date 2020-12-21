@@ -89,18 +89,19 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_LEFT:
+            if event.type == pygame.KEYDOWN and event.key in [pygame.K_LEFT, pygame.K_a]:
                 left = True
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_RIGHT:
+            if event.type == pygame.KEYDOWN and event.key in [pygame.K_RIGHT, pygame.K_d]:
                 right = True
-
-            if event.type == pygame.KEYUP and event.key == pygame.K_RIGHT:
+            if event.type == pygame.KEYUP and event.key in [pygame.K_RIGHT, pygame.K_d]:
                 right = False
-            if event.type == pygame.KEYUP and event.key == pygame.K_LEFT:  # TODO добавить WASD
+            if event.type == pygame.KEYUP and event.key in [pygame.K_LEFT, pygame.K_a]:
                 left = False
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_UP:
+            if event.type == pygame.KEYDOWN and event.key in [pygame.K_UP, pygame.K_w,
+                                                              pygame.K_SPACE]:
                 up = True
-            if event.type == pygame.KEYUP and event.key == pygame.K_UP:
+            if event.type == pygame.KEYUP and event.key in [pygame.K_UP, pygame.K_w,
+                                                            pygame.K_SPACE]:
                 up = False
 
         screen.fill((0, 0, 0))  # TODO разобраться сo screen.fill
