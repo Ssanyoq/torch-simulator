@@ -70,6 +70,23 @@ class Player(Entity):
         screen.blit(self.image, (self.entity.rect.x, self.entity.rect.y))
 
 
+class Platform:
+    def __init__(self, size_x, size_y, x, y, color='#887C5D'):
+        self.size_x = size_x
+        self.size_y = size_y
+        self.color = color
+
+        self.x = x
+        self.y = y
+
+        self.surface = pygame.Surface((self.size_x, self.size_y))
+        self.surface.fill(pygame.Color(self.color))
+        self.rect = pygame.Rect(x, y, self.size_x, self.size_y)
+
+    def draw(self, screen):
+        screen.blit(self.color, (self.rect.x, self.rect.y))
+
+
 def main():
     pygame.init()
     pygame.display.set_caption(WINDOW_CAPTION)
