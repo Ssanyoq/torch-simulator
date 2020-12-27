@@ -18,7 +18,7 @@ circle_color = (255, 255, 255)
 circles = []
 directions = []
 
-radio = pygame.mixer.Sound('misc/music.mp3')
+radio = pygame.mixer.Sound('misc/music/music_in_menu.mp3')
 radio.play()
 turned_on = True
 
