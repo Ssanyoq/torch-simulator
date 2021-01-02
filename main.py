@@ -7,6 +7,7 @@ SIZE_X = 1200
 SIZE_Y = 720
 WINDOW_CAPTION = 'Murky gloom'
 all_sprites = pygame.sprite.Group()
+entities = pygame.sprite.Group()
 
 
 def convert_level(level):
