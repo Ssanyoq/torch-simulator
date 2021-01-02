@@ -35,7 +35,7 @@ def load_image(name, color_key=None):
     # например, 'textures/icon.png
     fullname = os.path.join('misc', name)
     if not os.path.isfile(fullname):
-        raise Exception
+        raise FileNotFoundError
         sys.exit()
     image = pygame.image.load(fullname)
     if color_key is not None:
@@ -47,9 +47,10 @@ def load_image(name, color_key=None):
     return image
 
 
-class Entity:
+class Entity(pygame.sprite.Sprite):
     def __init__(self, size_x, size_y, x, y, texture=None, is_collide=True, health=None):
         # texture - название файла, как в load_image
+        super().__init__(entities)
         self.size = self.size_x, self.size_y = size_x, size_y
         self.position = self.x, self.y = x, y
         self.health = health
@@ -57,12 +58,10 @@ class Entity:
         self.is_immortal = False
         self.is_onground = True
 
-        self.all_sprites = pygame.sprite.Group()
         self.image = load_image(texture)
-        self.entity = pygame.sprite.Sprite(self.all_sprites)
-        self.entity.image = self.image
-        self.entity.rect = self.image.get_rect()
-        self.entity.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
+        self.image = self.image
+        self.rect = self.image.get_rect()
+        self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
 
         if health is None:
             self.is_immortal = True
@@ -78,18 +77,18 @@ class Player(Entity):
     def update(self, left, right, up):
         if up:
             if self.is_onground:
-                self.entity.rect.y -= self.jump_force
+                self.rect.y -= self.jump_force
         if left:
-            self.entity.rect.x -= self.speed
+            self.rect.x -= self.speed
         if right:
-            self.entity.rect.x += self.speed
+            self.rect.x += self.speed
         # if not (left or right):
         #     self.entity.rect.x = 0
         if not self.is_onground:
-            self.entity.rect.y += GRAVITY_FORCE
+            self.rect.y += GRAVITY_FORCE
 
     def draw(self, screen):
-        screen.blit(self.image, (self.entity.rect.x, self.entity.rect.y))
+        screen.blit(self.image, (self.rect.x, self.rect.y))
 
     def get_coord(self):
         return [self.entity.rect.x, self.entity.rect.y]
