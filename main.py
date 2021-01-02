@@ -6,6 +6,28 @@ GRAVITY_FORCE = 5
 SIZE_X = 1200
 SIZE_Y = 720
 WINDOW_CAPTION = 'Murky gloom'
+all_sprites = pygame.sprite.Group()
+
+
+def convert_level(level):
+    with open(f"""misc/levels/{level}.txt""", encoding='utf-8') as f:
+        data = f.readlines()
+
+    level = [i.rstrip() for i in data]
+    platforms = []
+
+    x = y = 0
+    for row in level:
+        for col in row:
+            if col == "-":
+                platform = Platform(30, 30, x, y)
+                all_sprites.add(platform)
+                platforms.append(platform)
+            x += 30
+        y += 30
+        x = 0
+
+    return platforms
 
 
 def load_image(name, color_key=None):
@@ -69,9 +91,14 @@ class Player(Entity):
     def draw(self, screen):
         screen.blit(self.image, (self.entity.rect.x, self.entity.rect.y))
 
+    def get_coord(self):
+        return [self.entity.rect.x, self.entity.rect.y]
 
-class Platform:
-    def __init__(self, size_x, size_y, x, y, color='#887C5D'):
+
+class Platform(pygame.sprite.Sprite):
+    def __init__(self, size_x, size_y, x, y, color=(255, 0, 0)):
+        pygame.sprite.Sprite.__init__(self)
+
         self.size_x = size_x
         self.size_y = size_y
         self.color = color
@@ -79,12 +106,26 @@ class Platform:
         self.x = x
         self.y = y
 
-        self.surface = pygame.Surface((self.size_x, self.size_y))
-        self.surface.fill(pygame.Color(self.color))
+        self.image = pygame.Surface((self.size_x, self.size_y))
+        self.image.fill(pygame.Color(self.color))
         self.rect = pygame.Rect(x, y, self.size_x, self.size_y)
 
     def draw(self, screen):
         screen.blit(self.color, (self.rect.x, self.rect.y))
+
+
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, x, y, radius, color, facing):
+        pygame.sprite.Sprite.__init__(self)
+        self.x = x
+        self.y = y
+        self.radius = radius
+        self.color = color
+        self.facing = facing
+        self.speed = 10 * facing
+
+    def draw(self, screen):
+        pygame.draw.circle(screen, self.color, (self.x, self.y), self.radius)
 
 
 def main():
@@ -97,6 +138,13 @@ def main():
     clock = pygame.time.Clock()
     player = Player(50, 50, 100, 100, texture='entities/player 0.png')  # TODO Поменять файл
 
+    platforms = convert_level('level_1')
+
+    bullets = []
+    bullet_direction = 'Right'
+
+    sprites = pygame.sprite.Group()
+
     left = False
     right = False
     up = False
@@ -108,8 +156,10 @@ def main():
                 running = False
             if event.type == pygame.KEYDOWN and event.key in [pygame.K_LEFT, pygame.K_a]:
                 left = True
+                bullet_direction = 'Left'
             if event.type == pygame.KEYDOWN and event.key in [pygame.K_RIGHT, pygame.K_d]:
                 right = True
+                bullet_direction = 'Right'
             if event.type == pygame.KEYUP and event.key in [pygame.K_RIGHT, pygame.K_d]:
                 right = False
             if event.type == pygame.KEYUP and event.key in [pygame.K_LEFT, pygame.K_a]:
@@ -121,9 +171,20 @@ def main():
                                                             pygame.K_SPACE]:
                 up = False
 
+            if event.type == pygame.MOUSEBUTTONUP:
+                facing = 1 if bullet_direction == 'Right' else -1
+                bullets.append(Bullet(player.get_coord()[0], player.get_coord()[1], 5, (100, 255, 0), facing))
+
         screen.fill((0, 0, 0))  # TODO разобраться сo screen.fill
-        player.update(left, right, up)
+        player.update(left, right, up)  # надо искать пересечения с списком platforms
         player.draw(screen)
+
+        for bullet in bullets:
+            if SIZE_X > bullet.x > 0:
+                bullet.x += bullet.speed
+            bullet.draw(screen)
+
+        all_sprites.draw(screen)
 
         pygame.display.flip()
         clock.tick(50)
