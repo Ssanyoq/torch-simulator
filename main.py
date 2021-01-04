@@ -6,12 +6,13 @@ GRAVITY_FORCE = 5
 SIZE_X = 1200
 SIZE_Y = 720
 WINDOW_CAPTION = 'Murky gloom'
-all_sprites = pygame.sprite.Group()
+obstacles = pygame.sprite.Group()
 entities = pygame.sprite.Group()
 
 
-def convert_level(level):
-    with open(f"""misc/levels/{level}.txt""", encoding='utf-8') as f:
+def convert_level(level,path='misc/levels'):
+    '''Info in documentation''' # TODO сделать документацию по convert_level
+    with open(f"""{path}/{level}.txt""", encoding='utf-8') as f:
         data = f.readlines()
 
     level = [i.rstrip() for i in data]
@@ -22,7 +23,7 @@ def convert_level(level):
         for col in row:
             if col == "-":
                 platform = Platform(30, 30, x, y)
-                all_sprites.add(platform)
+                obstacles.add(platform)
                 platforms.append(platform)
             x += 30
         y += 30
@@ -81,8 +82,12 @@ class Player(Entity):
                 self.rect.y -= self.jump_force
         if left:
             self.rect.x -= self.speed
+            if pygame.sprite.spritecollideany(self,obstacles):
+                self.rect.x += self.speed
         if right:
             self.rect.x += self.speed
+            if pygame.sprite.spritecollideany(self,obstacles):
+                self.rect.x -= self.speed
         # if not (left or right):
         #     self.entity.rect.x = 0
         if not self.is_onground:
@@ -92,7 +97,7 @@ class Player(Entity):
         screen.blit(self.image, (self.rect.x, self.rect.y))
 
     def get_coord(self):
-        return [self.entity.rect.x, self.entity.rect.y]
+        return [self.rect.x, self.rect.y]
 
 
 class Platform(pygame.sprite.Sprite):
@@ -136,7 +141,7 @@ def main():
     screen = pygame.display.set_mode(size)
 
     clock = pygame.time.Clock()
-    player = Player(50, 50, 100, 100, texture='entities/player 0.png')  # TODO Поменять файл
+    player = Player(50, 50, 100, 100, texture='entities/arrow.png')  # TODO Поменять файл
 
     platforms = convert_level('level_1')
 
@@ -184,7 +189,7 @@ def main():
                 bullet.x += bullet.speed
             bullet.draw(screen)
 
-        all_sprites.draw(screen)
+        obstacles.draw(screen)
 
         pygame.display.flip()
         clock.tick(50)
