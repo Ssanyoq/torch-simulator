@@ -8,10 +8,11 @@ SIZE_Y = 720
 WINDOW_CAPTION = 'Murky gloom'
 obstacles = pygame.sprite.Group()
 entities = pygame.sprite.Group()
+platforms = []
 
 
-def convert_level(level,path='misc/levels'):
-    '''Info in documentation''' # TODO сделать документацию по convert_level
+def convert_level(level, path='misc/levels'):
+    '''Info in documentation'''  # TODO сделать документацию по convert_level
     with open(f"""{path}/{level}.txt""", encoding='utf-8') as f:
         data = f.readlines()
 
@@ -59,6 +60,8 @@ class Entity(pygame.sprite.Sprite):
         self.is_collide = is_collide
         self.is_immortal = False
         self.is_onground = True
+        self.vel_x = 0  # velocity
+        self.vel_y = 0
 
         self.image = load_image(texture)
         self.image = self.image
@@ -73,28 +76,70 @@ class Player(Entity):
     def __init__(self, size_x, size_y, x, y, texture=None, is_collide=True, health=None):
         super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True,
                          health=100)
-        self.speed = 10
+        self.moving_velocity = 5
         self.jump_force = 20
+        self.vel_y = GRAVITY_FORCE
+        # Способ сделать красивые падения
+
+        self.in_air = False
 
     def update(self, left, right, up):
-        if up:
-            if self.is_onground:
-                self.rect.y -= self.jump_force
+        delta_x = 0  # Общее изменение
+        delta_y = 0  # за всю работу функции
         if left:
-            self.rect.x -= self.speed
-            if pygame.sprite.spritecollideany(self,obstacles):
-                self.rect.x += self.speed
+            delta_x = -self.moving_velocity
         if right:
-            self.rect.x += self.speed
-            if pygame.sprite.spritecollideany(self,obstacles):
-                self.rect.x -= self.speed
-        # if not (left or right):
-        #     self.entity.rect.x = 0
-        if not self.is_onground:
-            self.rect.y += GRAVITY_FORCE
+            delta_x = self.moving_velocity
+        if up:
+            if not self.in_air:
+                self.vel_y = -self.jump_force
+                self.in_air = True
+
+        self.vel_y += 1
+        if self.vel_y > 10:
+            self.vel_y = 10
+        delta_y += self.vel_y
+
+        tmp_rect = self.rect.copy()
+        # Rect для проверки на столкновение
+        # Сделано для того, чтобы определить столкновение до того, как
+        # настоящий игрок столкнется с препятствием
+
+        for platform in platforms:
+
+            tmp_rect.y = self.rect.y
+            tmp_rect.x = self.rect.x + delta_x
+
+            if platform.rect.colliderect(tmp_rect):
+                delta_x = 0
+
+            tmp_rect.x = self.rect.x
+            tmp_rect.y = self.rect.y + delta_y
+
+            if platform.rect.colliderect(tmp_rect):
+                # Проверка на столкновение по y
+                if self.vel_y < 0:
+                    # Если летит вверх
+                    delta_y = platform.rect.bottom - self.rect.top
+                    self.vel_y = 0
+                else:
+                    # Если летит вниз
+                    delta_y = platform.rect.top - self.rect.bottom
+                    self.vel_y = 0
+                    self.is_onground = True
+            else:
+                self.in_air = True
+
+        if self.is_onground:
+            self.in_air = False
+        self.is_onground = False
+
+        self.rect.x += delta_x
+        self.rect.y += delta_y
 
     def draw(self, screen):
         screen.blit(self.image, (self.rect.x, self.rect.y))
+        # pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)  # - чтобы было удобно дебажить
 
     def get_coord(self):
         return [self.rect.x, self.rect.y]
@@ -134,6 +179,7 @@ class Bullet(pygame.sprite.Sprite):
 
 
 def main():
+    global platforms
     pygame.init()
     pygame.display.set_caption(WINDOW_CAPTION)
 
@@ -147,7 +193,6 @@ def main():
 
     bullets = []
     bullet_direction = 'Right'
-
     sprites = pygame.sprite.Group()
 
     left = False
@@ -178,7 +223,8 @@ def main():
 
             if event.type == pygame.MOUSEBUTTONUP:
                 facing = 1 if bullet_direction == 'Right' else -1
-                bullets.append(Bullet(player.get_coord()[0], player.get_coord()[1], 5, (100, 255, 0), facing))
+                bullets.append(
+                    Bullet(player.get_coord()[0], player.get_coord()[1], 5, (100, 255, 0), facing))
 
         screen.fill((0, 0, 0))  # TODO разобраться сo screen.fill
         player.update(left, right, up)  # надо искать пересечения с списком platforms
