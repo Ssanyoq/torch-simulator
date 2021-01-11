@@ -6,13 +6,22 @@ GRAVITY_FORCE = 5
 SIZE_X = 1200
 SIZE_Y = 720
 WINDOW_CAPTION = 'Murky gloom'
+all_sprites = pygame.sprite.Group()
 obstacles = pygame.sprite.Group()
 entities = pygame.sprite.Group()
+shots = pygame.sprite.Group()
+
+darkness_radius = 180
+
+darkness_area = pygame.Surface((SIZE_X, SIZE_Y), pygame.SRCALPHA)
+darkness_area.fill((0, 0, 0))
+pygame.draw.circle(darkness_area, (0, 0, 0, 0), (SIZE_X // 2, SIZE_Y // 2), darkness_radius)
 platforms = []
 
 
 def convert_level(level, path='misc/levels'):
-    '''Info in documentation'''  # TODO сделать документацию по convert_level
+    # Функция открывает текстовый файл, в котором содержатся необходимые игровые элементы ->
+    # после чего создает список этих элементов(платформы, монстры и т.д).
     with open(f"""{path}/{level}.txt""", encoding='utf-8') as f:
         data = f.readlines()
 
@@ -21,11 +30,17 @@ def convert_level(level, path='misc/levels'):
 
     x = y = 0
     for row in level:
-        for col in row:
-            if col == "-":
-                platform = Platform(30, 30, x, y)
+        for element in row:
+            if element == "-":
+                platform = Platform(30, 30, x, y, texture='levels/platform.jpg')
                 obstacles.add(platform)
+                all_sprites.add(platform)
                 platforms.append(platform)
+            elif element == "*":
+                spike = Spike(30, 30, x, y)
+                obstacles.add(spike)
+                all_sprites.add(spike)
+                platforms.append(spike)
             x += 30
         y += 30
         x = 0
@@ -34,7 +49,7 @@ def convert_level(level, path='misc/levels'):
 
 
 def load_image(name, color_key=None):
-    # name - название файла с папкой,
+    # Функция для загрузки текстур, name - название файла с папкой
     # например, 'textures/icon.png
     fullname = os.path.join('misc', name)
     if not os.path.isfile(fullname):
@@ -141,41 +156,60 @@ class Player(Entity):
         screen.blit(self.image, (self.rect.x, self.rect.y))
         # pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)  # - чтобы было удобно дебажить
 
-    def get_coord(self):
-        return [self.rect.x, self.rect.y]
+    def death(self):
+        pass
 
 
 class Platform(pygame.sprite.Sprite):
-    def __init__(self, size_x, size_y, x, y, color=(255, 0, 0)):
+    def __init__(self, size_x, size_y, x, y, color=(255, 0, 0), texture=None):
         pygame.sprite.Sprite.__init__(self)
-
-        self.size_x = size_x
-        self.size_y = size_y
+        self.size_x, self.size_y = size_x, size_y
+        self.x, self.y = x, y
         self.color = color
 
-        self.x = x
-        self.y = y
-
-        self.image = pygame.Surface((self.size_x, self.size_y))
-        self.image.fill(pygame.Color(self.color))
-        self.rect = pygame.Rect(x, y, self.size_x, self.size_y)
+        self.image = load_image(texture)
+        self.image = self.image
+        self.rect = self.image.get_rect()
+        self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
 
     def draw(self, screen):
         screen.blit(self.color, (self.rect.x, self.rect.y))
 
 
+class Spike(Platform):
+    def __init__(self, size_x, size_y, x, y, color=(0, 255, 0), texture=None):
+        Platform.__init__(self, size_x, size_y, x, y, color, texture)
+        pygame.sprite.Sprite.__init__(self)
+        # Если мы пересекаемся с этим блоком то мы умераем (Земля пухом)
+
+
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, x, y, radius, color, facing):
         pygame.sprite.Sprite.__init__(self)
-        self.x = x
-        self.y = y
+        self.x, self.y = x, y
         self.radius = radius
         self.color = color
         self.facing = facing
         self.speed = 10 * facing
+        self.damage = 25
 
-    def draw(self, screen):
-        pygame.draw.circle(screen, self.color, (self.x, self.y), self.radius)
+        self.image = pygame.Surface((2 * radius, 2 * radius))
+        pygame.draw.circle(self.image, pygame.Color((255, 255, 0)), (radius, radius), radius)
+        self.rect = pygame.Rect(x, y, 2 * radius, 2 * radius)
+
+
+class Camera:
+    def __init__(self):
+        self.x = 0
+        self.y = 0
+
+    def apply(self, obj):
+        obj.rect.x += self.x
+        obj.rect.y += self.y
+
+    def update(self, target):
+        self.x = -(target.rect.x + target.rect.w // 2 - SIZE_X // 2)
+        self.y = -(target.rect.y + target.rect.h // 2 - SIZE_Y // 2)
 
 
 def main():
@@ -188,11 +222,17 @@ def main():
 
     clock = pygame.time.Clock()
     player = Player(50, 50, 100, 100, texture='entities/arrow.png')  # TODO Поменять файл
+    all_sprites.add(player)
 
     platforms = convert_level('level_1')
 
     bullets = []
     bullet_direction = 'Right'
+
+    camera = Camera()
+
+    darkness_rect = pygame.Rect((0, 0), (darkness_radius * 2, darkness_radius * 2))
+    screen.set_clip(darkness_rect)
     sprites = pygame.sprite.Group()
 
     left = False
@@ -221,21 +261,35 @@ def main():
                                                             pygame.K_SPACE]:
                 up = False
 
-            if event.type == pygame.MOUSEBUTTONUP:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 facing = 1 if bullet_direction == 'Right' else -1
-                bullets.append(
-                    Bullet(player.get_coord()[0], player.get_coord()[1], 5, (100, 255, 0), facing))
+                bullet = Bullet(player.rect.x + 25 // 2, player.rect.y + 25 // 2, 5, (100, 255, 0), facing)
+                shots.add(bullet)
+                bullets.append(bullet)
 
-        screen.fill((0, 0, 0))  # TODO разобраться сo screen.fill
-        player.update(left, right, up)  # надо искать пересечения с списком platforms
+        screen.fill((255, 255, 255))
+
+        camera.update(player)
+        for sprite in all_sprites:
+            camera.apply(sprite)
+
+        player.update(left, right, up)
         player.draw(screen)
 
         for bullet in bullets:
-            if SIZE_X > bullet.x > 0:
-                bullet.x += bullet.speed
-            bullet.draw(screen)
+            if SIZE_X > bullet.x > 0 and not pygame.sprite.spritecollideany(bullet, obstacles):
+                bullet.rect.x += bullet.speed
+            else:
+                bullets.pop(bullets.index(bullet))
+                shots.remove(bullet)
+
+        shots.update(bullets)
+        shots.draw(screen)
 
         obstacles.draw(screen)
+
+        screen.blit(darkness_area, darkness_rect)
+        screen.set_clip(None)
 
         pygame.display.flip()
         clock.tick(50)
