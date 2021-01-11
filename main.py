@@ -2,7 +2,7 @@ import pygame
 import sys
 import os
 
-GRAVITY_FORCE = 5
+GRAVITY_FORCE = 20
 SIZE_X = 1200
 SIZE_Y = 720
 WINDOW_CAPTION = 'Murky gloom'
@@ -32,7 +32,7 @@ def convert_level(level, path='misc/levels'):
     for row in level:
         for element in row:
             if element == "-":
-                platform = Platform(30, 30, x, y, texture='levels/platform.jpg')
+                platform = Platform(30, 30, x, y, texture='textures/platform.jpeg')
                 obstacles.add(platform)
                 all_sprites.add(platform)
                 platforms.append(platform)
@@ -111,8 +111,8 @@ class Player(Entity):
                 self.in_air = True
 
         self.vel_y += 1
-        if self.vel_y > 10:
-            self.vel_y = 10
+        if self.vel_y > GRAVITY_FORCE:
+            self.vel_y = GRAVITY_FORCE
         delta_y += self.vel_y
 
         tmp_rect = self.rect.copy()
@@ -156,7 +156,10 @@ class Player(Entity):
         screen.blit(self.image, (self.rect.x, self.rect.y))
         # pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)  # - чтобы было удобно дебажить
 
-    def death(self):
+    def get_coord(self):
+        return self.rect.x, self.rect.y
+
+    def kill(self):
         pass
 
 
@@ -191,25 +194,9 @@ class Bullet(pygame.sprite.Sprite):
         self.color = color
         self.facing = facing
         self.speed = 10 * facing
-        self.damage = 25
 
-        self.image = pygame.Surface((2 * radius, 2 * radius))
-        pygame.draw.circle(self.image, pygame.Color((255, 255, 0)), (radius, radius), radius)
-        self.rect = pygame.Rect(x, y, 2 * radius, 2 * radius)
-
-
-class Camera:
-    def __init__(self):
-        self.x = 0
-        self.y = 0
-
-    def apply(self, obj):
-        obj.rect.x += self.x
-        obj.rect.y += self.y
-
-    def update(self, target):
-        self.x = -(target.rect.x + target.rect.w // 2 - SIZE_X // 2)
-        self.y = -(target.rect.y + target.rect.h // 2 - SIZE_Y // 2)
+    def draw(self, screen):
+        pygame.draw.circle(screen, self.color, (self.x, self.y), self.radius)
 
 
 def main():
@@ -222,17 +209,12 @@ def main():
 
     clock = pygame.time.Clock()
     player = Player(50, 50, 100, 100, texture='entities/arrow.png')  # TODO Поменять файл
-    all_sprites.add(player)
 
     platforms = convert_level('level_1')
 
     bullets = []
     bullet_direction = 'Right'
 
-    camera = Camera()
-
-    darkness_rect = pygame.Rect((0, 0), (darkness_radius * 2, darkness_radius * 2))
-    screen.set_clip(darkness_rect)
     sprites = pygame.sprite.Group()
 
     left = False
@@ -261,35 +243,21 @@ def main():
                                                             pygame.K_SPACE]:
                 up = False
 
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if event.type == pygame.MOUSEBUTTONUP:
                 facing = 1 if bullet_direction == 'Right' else -1
-                bullet = Bullet(player.rect.x + 25 // 2, player.rect.y + 25 // 2, 5, (100, 255, 0), facing)
-                shots.add(bullet)
-                bullets.append(bullet)
+                bullets.append(
+                    Bullet(player.get_coord()[0], player.get_coord()[1], 5, (100, 255, 0), facing))
 
-        screen.fill((255, 255, 255))
-
-        camera.update(player)
-        for sprite in all_sprites:
-            camera.apply(sprite)
-
-        player.update(left, right, up)
+        screen.fill((0, 0, 0))
+        player.update(left, right, up)  # надо искать пересечения с списком platforms
         player.draw(screen)
 
         for bullet in bullets:
-            if SIZE_X > bullet.x > 0 and not pygame.sprite.spritecollideany(bullet, obstacles):
-                bullet.rect.x += bullet.speed
-            else:
-                bullets.pop(bullets.index(bullet))
-                shots.remove(bullet)
-
-        shots.update(bullets)
-        shots.draw(screen)
+            if SIZE_X > bullet.x > 0:
+                bullet.x += bullet.speed
+            bullet.draw(screen)
 
         obstacles.draw(screen)
-
-        screen.blit(darkness_area, darkness_rect)
-        screen.set_clip(None)
 
         pygame.display.flip()
         clock.tick(50)
