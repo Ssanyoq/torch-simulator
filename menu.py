@@ -1,29 +1,38 @@
 import pygame
 import main
 
+pygame.init()
 
-def level_screen(screen, font):
-    screen.fill((0, 0, 0))
 
-    button_text = ['level 1', 'level 2', 'level 3', 'level 4', 'level 5', 'Quit']  # Название кнопок
-    button_coord = 100
-    buttons = []
+def draw_text(screen, text, text_coord, text_delta, color='White'):
+    font = pygame.font.Font(None, 50)
 
-    text_coord = 50
-
-    for i in range(len(button_text)):  # Создание кнопок
-        button = pygame.draw.rect(screen, (200, 200, 200), (350, button_coord, 530, 60))
-        button_coord += 100
-        buttons.append(button)
-
-    for text in button_text:  # Отрисовка текста
-        string_rendered = font.render(text, 1, pygame.Color('White'))
+    for line in text:  # Отрисовка текста
+        string_rendered = font.render(line, 1, pygame.Color(color))
         intro_rect = string_rendered.get_rect()
-        text_coord += 65
+        text_coord += text_delta
         intro_rect.top = text_coord
         intro_rect.x = 550
         text_coord += intro_rect.height
         screen.blit(string_rendered, intro_rect)
+
+
+def level_screen(menu_screen):
+    menu_screen.fill((0, 0, 0))
+
+    button_coord = 100
+    buttons = []
+
+    for i in range(6):  # Создание кнопок
+        button = pygame.draw.rect(menu_screen, (200, 200, 200), (350, button_coord, 530, 60))
+        button_coord += 100
+        buttons.append(button)
+
+    button_text = ['level 1', 'level 2', 'level 3', 'level 4', 'level 5', 'Quit']  # Название кнопок
+    text_coord = 50
+    text_delta = 65
+
+    draw_text(menu_screen, button_text, text_coord, text_delta)
 
     running = True
     while running:
@@ -40,7 +49,8 @@ def level_screen(screen, font):
                             running = False
                             start_screen()
                         else:
-                            main.main('level_' + str(button.y // 100))
+                            running = False
+                            # main.main('level_' + str(button.y // 100))
         pygame.display.flip()
 
 
@@ -54,20 +64,12 @@ def start_screen():
     level_button = pygame.draw.rect(screen, (200, 200, 200), (350, 320, 530, 60))
     exit_button = pygame.draw.rect(screen, (200, 170, 170), (350, 410, 530, 60))
     off_button = pygame.draw.rect(screen, (150, 170, 170), (1110, 690, 75, 25))
-    # TODO сделать словарем
 
-    text_coord = 190
-    font = pygame.font.Font(None, 50)
     intro_text = ["Start", "Levels", "Exit"]
+    text_coord = 190
+    text_delta = 55
 
-    for line in intro_text:
-        string_rendered = font.render(line, 1, pygame.Color('White'))
-        intro_rect = string_rendered.get_rect()
-        text_coord += 55
-        intro_rect.top = text_coord
-        intro_rect.x = 550
-        text_coord += intro_rect.height
-        screen.blit(string_rendered, intro_rect)
+    draw_text(screen, intro_text, text_coord, text_delta)
 
     screen.blit(pygame.font.Font(None, 25).render('Music', 1, pygame.Color('White')), (1125, 695, 75, 25))
 
@@ -86,11 +88,13 @@ def start_screen():
                 if pygame.mouse.get_pos()[0] >= 350 and pygame.mouse.get_pos()[1] >= 230:
                     if pygame.mouse.get_pos()[0] <= 880 and pygame.mouse.get_pos()[1] <= 280:
                         radio.stop()
-                        main.main('level_1')  # Загружаем не пройденный уровень
+                        running = False
+                        # main.main('level_1')  # Загружаем не пройденный уровень
 
                 if pygame.mouse.get_pos()[0] >= 350 and pygame.mouse.get_pos()[1] >= 320:
                     if pygame.mouse.get_pos()[0] <= 880 and pygame.mouse.get_pos()[1] <= 380:
-                        level_screen(screen, font)  # Отрисовываем меню с уровнями
+                        running = False
+                        level_screen(screen)  # Отрисовываем меню с уровнями
 
                 if pygame.mouse.get_pos()[0] >= 350 and pygame.mouse.get_pos()[1] >= 410:
                     if pygame.mouse.get_pos()[0] <= 880 and pygame.mouse.get_pos()[1] <= 470:
