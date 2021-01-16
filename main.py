@@ -21,7 +21,7 @@ BRIGHTNESS_INFO = {
 # граница расстояния, при котором будет этот уровень освещенности
 # и второе число - сколько нано отнять от r,g,b начального цвета
 
-PLATFORM_COLOR = (65,58,45)
+PLATFORM_COLOR = (150, 150, 150)
 # Цвет платформы при максимальном освещении
 
 obstacles = pygame.sprite.Group()
@@ -181,16 +181,32 @@ class Player(Entity):
 
 
 class Platform:
-    def __init__(self, size_x, size_y, x, y, color=(255, 255, 255)):
+    def __init__(self, size_x, size_y, x, y, color=(255, 255, 255), pebble_color=(0, 0, 0)):
         self.size_x, self.size_y = size_x, size_y
         self.x, self.y = x, y
         self.color = color
-        self.generate_pebbles(3)
+        self.pebble_color = pebble_color
         self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
+        self.pebbles = []
+        self.generate_pebbles(2)
 
     def generate_pebbles(self, k):
         """Генерирует k камешков, так красиво"""
-        pass  # TODO
+        for i in range(k):
+            pos_x = random.randint(self.size_x // 10, self.size_x - self.size_x // 10)
+            pos_y = random.randint(self.size_y // 10, self.size_y - self.size_y // 10)
+            # чтобы отступы были по краям
+            width = random.randint(5, 15)
+            height = random.randint(5, 15)
+            if width + pos_x > self.size_x:
+                width = self.size_x - pos_x
+            if height + pos_y > self.size_y:
+                height = self.size_y - pos_y
+            # Можно было просто 2 раза расчитать pos_x и y,
+            # но тогда камешки могут быть очень большими
+
+            pebble_rect = pygame.Rect(pos_x + self.rect.x, pos_y + self.rect.y, width, height)
+            self.pebbles.append(pebble_rect)
 
     def draw(self, screen):
         # for light in lightsources: надо сделать, когда будут факелы
@@ -217,6 +233,8 @@ class Platform:
             tmp_color = (0, 0, 0)
 
         pygame.draw.rect(screen, tmp_color, self.rect)
+        for pebble in self.pebbles:
+            pygame.draw.rect(screen, self.pebble_color, pebble)
 
 
 class Spike(Platform):
