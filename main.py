@@ -272,6 +272,7 @@ class Bullet(pygame.sprite.Sprite):
 
 class Air:
     """Сделано для красивого освещения"""
+
     def __init__(self, size_x, size_y, x, y, color=(255, 255, 255)):
         self.size_x, self.size_y = size_x, size_y
         self.x, self.y = x, y
@@ -335,15 +336,16 @@ def main():
         screen.fill((0, 0, 0))
         player.update(left, right, up)  # надо искать пересечения с списком platforms
 
+        for platform in platforms:
+            platform.draw(screen)
+
+        for decorative in decoratives:
+            decorative.draw(screen)
+
         for bullet in bullets:
             if SIZE_X > bullet.x > 0:
                 bullet.x += bullet.speed
             bullet.draw(screen)
-
-        for platform in platforms:
-            platform.draw(screen)
-        for decorative in decoratives:
-            decorative.draw(screen)
 
         player.draw(screen)
         pygame.display.flip()
