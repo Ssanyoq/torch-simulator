@@ -1,12 +1,29 @@
+import math
+
 import pygame
 import sys
 import os
+import random
 
 GRAVITY_FORCE = 20
 SIZE_X = 1200
 SIZE_Y = 720
 WINDOW_CAPTION = 'Murky gloom'
-all_sprites = pygame.sprite.Group()
+
+BRIGHTNESS_INFO = {
+    10: [30, 0], 9: [60, 10], 8: [90, 20],
+    7: [120, 30], 6: [150, 40], 5: [180, 50],
+    4: [210, 60], 3: [240, 70], 2: [270, 80],
+    1: [270, 90]
+}
+# Всего 7 уровней освещения, 7 - максимальный
+# Словарь - каждому ключу соответствует нижняя
+# граница расстояния, при котором будет этот уровень освещенности
+# и второе число - сколько нано отнять от r,g,b начального цвета
+
+PLATFORM_COLOR = (65,58,45)
+# Цвет платформы при максимальном освещении
+
 obstacles = pygame.sprite.Group()
 entities = pygame.sprite.Group()
 shots = pygame.sprite.Group()
@@ -17,6 +34,7 @@ darkness_area = pygame.Surface((SIZE_X, SIZE_Y), pygame.SRCALPHA)
 darkness_area.fill((0, 0, 0))
 pygame.draw.circle(darkness_area, (0, 0, 0, 0), (SIZE_X // 2, SIZE_Y // 2), darkness_radius)
 platforms = []
+player = None  # Чтобы пичярм не жаловался
 
 
 def convert_level(level, path='misc/levels'):
@@ -32,15 +50,14 @@ def convert_level(level, path='misc/levels'):
     for row in level:
         for element in row:
             if element == "-":
-                platform = Platform(30, 30, x, y, texture='textures/platform.jpeg')
-                obstacles.add(platform)
-                all_sprites.add(platform)
+                platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
+                # obstacles.add(platform)
                 platforms.append(platform)
-            elif element == "*":
-                spike = Spike(30, 30, x, y)
-                obstacles.add(spike)
-                all_sprites.add(spike)
-                platforms.append(spike)
+            # elif element == "*":
+            #     spike = Spike(30, 30, x, y) TODO spikes
+            #     obstacles.add(spike)
+            #     all_sprites.add(spike)
+            #     platforms.append(spike)
             x += 30
         y += 30
         x = 0
@@ -163,26 +180,48 @@ class Player(Entity):
         pass
 
 
-class Platform(pygame.sprite.Sprite):
-    def __init__(self, size_x, size_y, x, y, color=(255, 0, 0), texture=None):
-        pygame.sprite.Sprite.__init__(self)
+class Platform:
+    def __init__(self, size_x, size_y, x, y, color=(255, 255, 255)):
         self.size_x, self.size_y = size_x, size_y
         self.x, self.y = x, y
         self.color = color
-
-        self.image = load_image(texture)
-        self.image = self.image
-        self.rect = self.image.get_rect()
+        self.generate_pebbles(3)
         self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
 
+    def generate_pebbles(self, k):
+        """Генерирует k камешков, так красиво"""
+        pass  # TODO
+
     def draw(self, screen):
-        screen.blit(self.color, (self.rect.x, self.rect.y))
+        # for light in lightsources: надо сделать, когда будут факелы
+        #    pass
+        player_x = player.rect.centerx
+        player_y = player.rect.centery
+        # Чтобы расстояние было не от левого верхнего
+
+        distance_from_player = ((self.rect.centerx - player_x) ** 2 + (
+                self.rect.centery - player_y) ** 2) ** 0.5
+        # Просто нахождение расстояния между двумя точками
+        distance_from_player = math.ceil(distance_from_player)  # чтобы int чтобы красиво
+        is_changed = False
+        tmp_color = None
+        for i in BRIGHTNESS_INFO.keys():
+            if distance_from_player <= BRIGHTNESS_INFO[i][0]:
+                delta = BRIGHTNESS_INFO[i][1]
+                tmp_color = [self.color[0] - delta, self.color[1] - delta, self.color[2] - delta]
+                tmp_color = [i if i >= 0 else 0 for i in tmp_color]
+                is_changed = True
+                break
+
+        if not is_changed:
+            tmp_color = (0, 0, 0)
+
+        pygame.draw.rect(screen, tmp_color, self.rect)
 
 
 class Spike(Platform):
-    def __init__(self, size_x, size_y, x, y, color=(0, 255, 0), texture=None):
-        Platform.__init__(self, size_x, size_y, x, y, color, texture)
-        pygame.sprite.Sprite.__init__(self)
+    def __init__(self, size_x, size_y, x, y, color=(0, 255, 0)):
+        Platform.__init__(self, size_x, size_y, x, y, color)
         # Если мы пересекаемся с этим блоком то мы умераем (Земля пухом)
 
 
@@ -200,7 +239,7 @@ class Bullet(pygame.sprite.Sprite):
 
 
 def main():
-    global platforms
+    global platforms, player
     pygame.init()
     pygame.display.set_caption(WINDOW_CAPTION)
 
@@ -257,7 +296,8 @@ def main():
                 bullet.x += bullet.speed
             bullet.draw(screen)
 
-        obstacles.draw(screen)
+        for platform in platforms:
+            platform.draw(screen)
 
         pygame.display.flip()
         clock.tick(50)
