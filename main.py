@@ -82,6 +82,34 @@ def load_image(name, color_key=None):
     return image
 
 
+def change_color(color, center_x, center_y):
+    # for light in lightsources: надо сделать, когда будут факелы
+    #    pass
+    player_x = player.rect.centerx
+    player_y = player.rect.centery
+    # Чтобы расстояние было не от левого верхнего
+
+    distance_from_player = ((center_x - player_x) ** 2 + (
+            center_y - player_y) ** 2) ** 0.5
+    # Просто нахождение расстояния между двумя точками
+    distance_from_player = math.ceil(distance_from_player)  # чтобы int чтобы красиво
+
+    is_changed = False
+    new_color = None
+    for i in BRIGHTNESS_INFO.keys():
+        if distance_from_player <= BRIGHTNESS_INFO[i][0]:
+            delta = BRIGHTNESS_INFO[i][1]
+            new_color = [color[0] - delta, color[1] - delta, color[2] - delta]
+            new_color = [i if i >= 0 else 0 for i in new_color]
+            is_changed = True
+            break
+
+    if not is_changed:
+        new_color = (0, 0, 0)
+
+    return new_color
+
+
 class Entity(pygame.sprite.Sprite):
     def __init__(self, size_x, size_y, x, y, texture=None, is_collide=True, health=None):
         # texture - название файла, как в load_image
@@ -181,7 +209,7 @@ class Player(Entity):
 
 
 class Platform:
-    def __init__(self, size_x, size_y, x, y, color=(255, 255, 255), pebble_color=(0, 0, 0)):
+    def __init__(self, size_x, size_y, x, y, color=(255, 255, 255), pebble_color=(50, 50, 50)):
         self.size_x, self.size_y = size_x, size_y
         self.x, self.y = x, y
         self.color = color
@@ -191,17 +219,17 @@ class Platform:
         self.generate_pebbles(2)
 
     def generate_pebbles(self, k):
-        """Генерирует k камешков, так красиво"""
+        """Генерирует k камешков"""
         for i in range(k):
             pos_x = random.randint(self.size_x // 10, self.size_x - self.size_x // 10)
             pos_y = random.randint(self.size_y // 10, self.size_y - self.size_y // 10)
             # чтобы отступы были по краям
             width = random.randint(5, 15)
             height = random.randint(5, 15)
-            if width + pos_x > self.size_x:
-                width = self.size_x - pos_x
-            if height + pos_y > self.size_y:
-                height = self.size_y - pos_y
+            if width + pos_x >= self.size_x - 2:
+                width = self.size_x - pos_x - 2
+            if height + pos_y >= self.size_y - 2:
+                height = self.size_y - pos_y - 2
             # Можно было просто 2 раза расчитать pos_x и y,
             # но тогда камешки могут быть очень большими
 
@@ -209,32 +237,12 @@ class Platform:
             self.pebbles.append(pebble_rect)
 
     def draw(self, screen):
-        # for light in lightsources: надо сделать, когда будут факелы
-        #    pass
-        player_x = player.rect.centerx
-        player_y = player.rect.centery
-        # Чтобы расстояние было не от левого верхнего
-
-        distance_from_player = ((self.rect.centerx - player_x) ** 2 + (
-                self.rect.centery - player_y) ** 2) ** 0.5
-        # Просто нахождение расстояния между двумя точками
-        distance_from_player = math.ceil(distance_from_player)  # чтобы int чтобы красиво
-        is_changed = False
-        tmp_color = None
-        for i in BRIGHTNESS_INFO.keys():
-            if distance_from_player <= BRIGHTNESS_INFO[i][0]:
-                delta = BRIGHTNESS_INFO[i][1]
-                tmp_color = [self.color[0] - delta, self.color[1] - delta, self.color[2] - delta]
-                tmp_color = [i if i >= 0 else 0 for i in tmp_color]
-                is_changed = True
-                break
-
-        if not is_changed:
-            tmp_color = (0, 0, 0)
+        tmp_color = change_color(self.color, self.rect.centerx, self.rect.centery)
 
         pygame.draw.rect(screen, tmp_color, self.rect)
         for pebble in self.pebbles:
-            pygame.draw.rect(screen, self.pebble_color, pebble)
+            tmp_pebble_color = change_color(self.pebble_color, pebble.centerx, pebble.centery)
+            pygame.draw.rect(screen, tmp_pebble_color, pebble)
 
 
 class Spike(Platform):
