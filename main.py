@@ -23,6 +23,7 @@ BRIGHTNESS_INFO = {
 
 PLATFORM_COLOR = (150, 150, 150)
 # Цвет платформы при максимальном освещении
+AIR_COLOR = (71, 57, 11)
 
 obstacles = pygame.sprite.Group()
 entities = pygame.sprite.Group()
@@ -45,6 +46,7 @@ def convert_level(level, path='misc/levels'):
 
     level = [i.rstrip() for i in data]
     platforms = []
+    decoratives = []
 
     x = y = 0
     for row in level:
@@ -58,11 +60,15 @@ def convert_level(level, path='misc/levels'):
             #     obstacles.add(spike)
             #     all_sprites.add(spike)
             #     platforms.append(spike)
+            else:
+                air = Air(30, 30, x, y, color=AIR_COLOR)
+                decoratives.append(air)
+
             x += 30
         y += 30
         x = 0
 
-    return platforms
+    return platforms, decoratives
 
 
 def load_image(name, color_key=None):
@@ -264,6 +270,19 @@ class Bullet(pygame.sprite.Sprite):
         pygame.draw.circle(screen, self.color, (self.x, self.y), self.radius)
 
 
+class Air:
+    """Сделано для красивого освещения"""
+    def __init__(self, size_x, size_y, x, y, color=(255, 255, 255)):
+        self.size_x, self.size_y = size_x, size_y
+        self.x, self.y = x, y
+        self.color = color
+        self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
+
+    def draw(self, screen):
+        tmp_color = change_color(self.color, self.rect.centerx, self.rect.centery)
+        pygame.draw.rect(screen, tmp_color, self.rect)
+
+
 def main():
     global platforms, player
     pygame.init()
@@ -275,7 +294,7 @@ def main():
     clock = pygame.time.Clock()
     player = Player(50, 50, 100, 100, texture='entities/arrow.png')  # TODO Поменять файл
 
-    platforms = convert_level('level_1')
+    platforms, decoratives = convert_level('level_1')
 
     bullets = []
     bullet_direction = 'Right'
@@ -315,7 +334,6 @@ def main():
 
         screen.fill((0, 0, 0))
         player.update(left, right, up)  # надо искать пересечения с списком platforms
-        player.draw(screen)
 
         for bullet in bullets:
             if SIZE_X > bullet.x > 0:
@@ -324,7 +342,10 @@ def main():
 
         for platform in platforms:
             platform.draw(screen)
+        for decorative in decoratives:
+            decorative.draw(screen)
 
+        player.draw(screen)
         pygame.display.flip()
         clock.tick(50)
     pygame.quit()
