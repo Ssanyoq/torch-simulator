@@ -158,19 +158,21 @@ class Entity(pygame.sprite.Sprite):
 class Player(Entity):
     def __init__(self, size_x, size_y, x, y, texture=None, is_collide=True, health=None):
         super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True, health=100)
-        self.jump_force = 15
+        self.jump_force = 20
         self.vel_y = GRAVITY_FORCE
         # Способ сделать красивые падения
 
         self.in_air = False
 
+        self.delta_x, self.delta_y = 0, 0
+
     def update(self, left, right, up):
-        delta_x = 0  # Общее изменение
-        delta_y = 0  # за всю работу функции
+        self.delta_x = 0  # Общее изменение
+        self.delta_y = 0  # за всю работу функции
         if left:
-            delta_x = -self.moving_velocity
+            self.delta_x = -self.moving_velocity
         if right:
-            delta_x = self.moving_velocity
+            self.delta_x = self.moving_velocity
         if up:
             if not self.in_air:
                 self.vel_y = -self.jump_force
@@ -179,7 +181,7 @@ class Player(Entity):
         self.vel_y += 1
         if self.vel_y > GRAVITY_FORCE:
             self.vel_y = GRAVITY_FORCE
-        delta_y += self.vel_y
+        self.delta_y += self.vel_y
 
         tmp_rect = self.rect.copy()
         # Rect для проверки на столкновение
@@ -189,23 +191,23 @@ class Player(Entity):
         for platform in platforms:
 
             tmp_rect.y = self.rect.y
-            tmp_rect.x = self.rect.x + delta_x
+            tmp_rect.x = self.rect.x + self.delta_x
 
             if platform.rect.colliderect(tmp_rect):
-                delta_x = 0
+                self.delta_x = 0
 
             tmp_rect.x = self.rect.x
-            tmp_rect.y = self.rect.y + delta_y
+            tmp_rect.y = self.rect.y + self.delta_y
 
             if platform.rect.colliderect(tmp_rect):
                 # Проверка на столкновение по y
                 if self.vel_y < 0:
                     # Если летит вверх
-                    delta_y = platform.rect.bottom - self.rect.top
+                    self.delta_y = platform.rect.bottom - self.rect.top
                     self.vel_y = 0
                 else:
                     # Если летит вниз
-                    delta_y = platform.rect.top - self.rect.bottom
+                    self.delta_y = platform.rect.top - self.rect.bottom
                     self.vel_y = 0
                     self.is_onground = True
             else:
@@ -215,8 +217,8 @@ class Player(Entity):
             self.in_air = False
         self.is_onground = False
 
-        self.rect.x += delta_x
-        self.rect.y += delta_y
+        self.rect.x += self.delta_x
+        self.rect.y += self.delta_y
 
     def draw(self, screen):
         screen.blit(self.image, (self.rect.x, self.rect.y))
@@ -262,6 +264,7 @@ class Enemy(Entity):
 
 class Platform(pygame.sprite.Sprite):
     """Наследуется от sprite только для того, чтобы камера работала"""
+
     def __init__(self, size_x, size_y, x, y, color=(255, 255, 255), pebble_color=(50, 50, 50)):
         super().__init__(obstacles)
         self.size_x, self.size_y = size_x, size_y
@@ -332,8 +335,18 @@ class Camera:
         obj.rect.y += self.y
 
     def update(self, target):
-        self.x = -(target.rect.x + target.rect.w // 2 - SIZE_X // 2)
-        self.y = -(target.rect.y + target.rect.h // 2 - SIZE_Y // 2)
+        if target.rect.centerx + target.delta_x > SIZE_X - 120 - self.x or \
+                target.rect.centerx + target.delta_x < 0 - self.x + 120:
+            self.x = -target.delta_x
+        else:
+            self.x = 0
+        if target.rect.centery + target.delta_y > SIZE_Y - 50 - self.y or \
+                target.rect.centery + target.delta_y < 50 + self.y:
+            self.y = -target.delta_y
+        else:
+            self.y = 0
+        # self.x = -(target.rect.centerx - SIZE_X // 2)
+        # self.y = -(target.rect.centery - SIZE_Y // 2)
 
 
 class Air(pygame.sprite.Sprite):
@@ -358,8 +371,6 @@ def main(level):
     pygame.display.set_caption(WINDOW_CAPTION)
     screen = pygame.display.set_mode(SIZE)
 
-    # player = Player(50, 50, 100, 100, texture='entities/arrow.png')  # TODO Поменять файл
-
     platforms, decoratives, player_x, player_y = convert_level('level_1')
     player = Player(50, 50, player_x, player_y - 20,
                     texture='entities/arrow.png')  # TODO Поменять файл
@@ -370,8 +381,8 @@ def main(level):
 
     camera = Camera()  # Создаем камеру
 
-    darkness_rect = pygame.Rect((0, 0), (darkness_radius * 2, darkness_radius * 2))
-    screen.set_clip(darkness_rect)
+    # darkness_rect = pygame.Rect((0, 0), (darkness_radius * 2, darkness_radius * 2),)
+    # screen.set_clip(darkness_rect)
     # Поверх экрана происходит отрисовка прямоугольника с вырезанным по середине кругом (Темнота)
 
     left = False
@@ -402,6 +413,9 @@ def main(level):
             if event.type == pygame.KEYUP and event.key in [pygame.K_UP, pygame.K_w,
                                                             pygame.K_SPACE]:
                 up = False
+            if event.type == pygame.KEYUP and event.key == pygame.K_r:
+                main("level_1")
+                return None
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not paused:
                 bullet = Bullet(player.rect.x + 25 // 2, player.rect.y + 25 // 2,
@@ -414,10 +428,6 @@ def main(level):
 
         if not paused:  # Если игра не на паузе отрисовываем главную сцену, иначе меню паузы
             screen.fill((255, 255, 255))
-
-            camera.update(player)
-            for sprite in all_sprites:
-                camera.apply(sprite)
 
             enemies.update()
             enemies.draw(screen)
@@ -439,10 +449,14 @@ def main(level):
             shots.draw(screen)
 
             player.update(left, right, up)
+            camera.update(player)
+
             player.draw(screen)
+            for sprite in all_sprites:
+                camera.apply(sprite)
             # obstacles.draw(screen)
 
-            screen.blit(darkness_area, darkness_rect)
+            # screen.blit(darkness_area, darkness_rect)
             screen.set_clip(None)
 
             pygame.display.flip()
