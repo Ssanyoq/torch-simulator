@@ -4,17 +4,60 @@ import main
 pygame.init()
 
 
-def draw_text(screen, text, text_coord, text_delta, color='White'):
-    font = pygame.font.Font(None, 50)
+def draw_text(screen, text, text_coord, text_delta, color='White', size=50, text_coord_2=550):
+    font = pygame.font.Font(None, size)
 
     for line in text:  # Отрисовка текста
         string_rendered = font.render(line, 1, pygame.Color(color))
         intro_rect = string_rendered.get_rect()
         text_coord += text_delta
         intro_rect.top = text_coord
-        intro_rect.x = 550
+        intro_rect.x = text_coord_2
         text_coord += intro_rect.height
         screen.blit(string_rendered, intro_rect)
+
+
+def end_screen(screen, victory, level):
+    screen.fill((0, 0, 0))
+
+    button_coord = 400
+    buttons = []
+
+    for i in range(2):  # Создание кнопок
+        button = pygame.draw.rect(screen, (200, 200, 225), (350, button_coord, 530, 60))
+        button_coord += 100
+        buttons.append(button)
+
+    text_coord = 350
+    text_delta = 65
+
+    if victory:
+        draw_text(screen, ['You win'], 100, 0, color='Green', size=200, text_coord_2=350)
+        button_text = ['Continue', 'Quit']
+    else:
+        draw_text(screen, ['You lose'], 100, 0, color='Red', size=200, text_coord_2=325)
+        button_text = ['Restart', 'Quit']
+
+    draw_text(screen, button_text, text_coord, text_delta)
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                for button in buttons:
+                    if pygame.Rect.collidepoint(button, pygame.mouse.get_pos()):
+                        if button.y == 400 and victory:
+                            running = False
+                            pass  # Загружаем следующий уровень
+                        else:
+                            running = False
+                            pass  # Перезагружаем уровень
+                        if button.y == 500:
+                            running = False
+                            start_screen()
+        pygame.display.flip()
 
 
 def level_screen(menu_screen):
@@ -60,10 +103,10 @@ def start_screen():
     SIZE = WIDTH, HEIGHT = 1200, 720
     screen = pygame.display.set_mode(SIZE)
 
-    start_button = pygame.draw.rect(screen, (210, 200, 200), (350, 230, 530, 60))
-    level_button = pygame.draw.rect(screen, (200, 200, 200), (350, 320, 530, 60))
-    exit_button = pygame.draw.rect(screen, (200, 170, 170), (350, 410, 530, 60))
-    off_button = pygame.draw.rect(screen, (150, 170, 170), (1110, 690, 75, 25))
+    pygame.draw.rect(screen, (210, 200, 200), (350, 230, 530, 60))
+    pygame.draw.rect(screen, (200, 200, 200), (350, 320, 530, 60))
+    pygame.draw.rect(screen, (200, 170, 170), (350, 410, 530, 60))
+    pygame.draw.rect(screen, (150, 170, 170), (1110, 690, 75, 25))
 
     intro_text = ["Start", "Levels", "Exit"]
     text_coord = 190
@@ -116,3 +159,4 @@ def start_screen():
 
 if __name__ == '__main__':
     start_screen()
+    # end_screen(screen, True, 'level_1')
