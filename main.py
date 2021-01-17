@@ -1,5 +1,5 @@
 import math
-
+import random
 import pygame
 import sys
 import os
@@ -20,7 +20,7 @@ BRIGHTNESS_INFO = {
 # граница расстояния, при котором будет этот уровень освещенности
 # и второе число - сколько нано отнять от r,g,b начального цвета
 
-PLATFORM_COLOR = (86,72,57)
+PLATFORM_COLOR = (86, 72, 57)
 # Цвет платформы при максимальном освещении
 AIR_COLOR = (71, 57, 11)
 
@@ -58,6 +58,8 @@ def convert_level(level, path='misc/levels'):
                 platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
                 # obstacles.add(platform)
                 platforms.append(platform)
+                obstacles.add(platform)
+                all_sprites.add(platform)
             elif element == "*":
                 spike = Spike(30, 30, x, y, texture='textures/spike.png')
                 obstacles.add(spike)
@@ -73,6 +75,8 @@ def convert_level(level, path='misc/levels'):
                 all_sprites.add(enemy)
             elif element == 'S':
                 player_x, player_y = x, y
+                air = Air(30, 30, x, y, color=AIR_COLOR)
+                decoratives.append(air)
             else:
                 air = Air(30, 30, x, y, color=AIR_COLOR)
                 decoratives.append(air)
@@ -139,7 +143,7 @@ class Entity(pygame.sprite.Sprite):
         self.health = health
         self.is_collide = is_collide
         self.is_immortal = False
-        self.is_onground = True
+        self.is_onground = False
         self.moving_velocity = 5
 
         self.image = load_image(texture)
@@ -256,9 +260,10 @@ class Enemy(Entity):
         screen.blit(self.image, (self.rect.x, self.rect.y))
 
 
-
-class Platform:
+class Platform(pygame.sprite.Sprite):
+    """Наследуется от sprite только для того, чтобы камера работала"""
     def __init__(self, size_x, size_y, x, y, color=(255, 255, 255), pebble_color=(50, 50, 50)):
+        super().__init__(obstacles)
         self.size_x, self.size_y = size_x, size_y
         self.x, self.y = x, y
         self.color = color
@@ -282,7 +287,7 @@ class Platform:
             # Можно было просто 2 раза расчитать pos_x и y,
             # но тогда камешки могут быть очень большими
 
-            pebble_rect = pygame.Rect(pos_x + self.rect.x, pos_y + self.rect.y, width, height)
+            pebble_rect = pygame.Rect(pos_x, pos_y, width, height)
             self.pebbles.append(pebble_rect)
 
     def draw(self, screen):
@@ -291,7 +296,9 @@ class Platform:
         pygame.draw.rect(screen, tmp_color, self.rect)
         for pebble in self.pebbles:
             tmp_pebble_color = change_color(self.pebble_color, pebble.centerx, pebble.centery)
-            pygame.draw.rect(screen, tmp_pebble_color, pebble)
+            tmp_rect = pygame.Rect(pebble.x + self.rect.x, pebble.y + self.rect.y, pebble.width,
+                                   pebble.height)
+            pygame.draw.rect(screen, tmp_pebble_color, tmp_rect)
 
 
 class Spike(Platform):
@@ -328,10 +335,12 @@ class Camera:
         self.x = -(target.rect.x + target.rect.w // 2 - SIZE_X // 2)
         self.y = -(target.rect.y + target.rect.h // 2 - SIZE_Y // 2)
 
-class Air:
+
+class Air(pygame.sprite.Sprite):
     """Сделано для красивого освещения"""
 
     def __init__(self, size_x, size_y, x, y, color=(255, 255, 255)):
+        super().__init__(all_sprites)
         self.size_x, self.size_y = size_x, size_y
         self.x, self.y = x, y
         self.color = color
@@ -349,11 +358,11 @@ def main(level):
     pygame.display.set_caption(WINDOW_CAPTION)
     screen = pygame.display.set_mode(SIZE)
 
-
-    player = Player(50, 50, 100, 100, texture='entities/arrow.png')  # TODO Поменять файл
+    # player = Player(50, 50, 100, 100, texture='entities/arrow.png')  # TODO Поменять файл
 
     platforms, decoratives, player_x, player_y = convert_level('level_1')
-    player = Player(50, 50, player_x, player_y - 20, texture='entities/arrow.png')  # TODO Поменять файл
+    player = Player(50, 50, player_x, player_y - 20,
+                    texture='entities/arrow.png')  # TODO Поменять файл
     all_sprites.add(player)
 
     bullets = []
@@ -410,9 +419,6 @@ def main(level):
             for sprite in all_sprites:
                 camera.apply(sprite)
 
-            player.update(left, right, up)
-            player.draw(screen)
-
             enemies.update()
             enemies.draw(screen)
 
@@ -432,7 +438,9 @@ def main(level):
             shots.update(bullets)
             shots.draw(screen)
 
-            obstacles.draw(screen)
+            player.update(left, right, up)
+            player.draw(screen)
+            # obstacles.draw(screen)
 
             screen.blit(darkness_area, darkness_rect)
             screen.set_clip(None)
