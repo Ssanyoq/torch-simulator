@@ -47,10 +47,12 @@ def convert_level(level, path='misc/levels'):
                 a = [i for i in level[count + 1]]
                 max_length_right = a[x // 30:].index(' ') * 30
                 max_length_left = a[:x // 30][::-1].index(' ') * 30
-                enemy = Enemy(30, 30, x, y, max_length_right, max_length_left,
-                              texture='textures/platform.jpeg')
-                enemies.add(enemy)
-                all_sprites.add(enemy)
+                if not max_length_right == max_length_left == 0:
+                    # Если враг не на платформе, то мы его не создаем
+                    enemy = Enemy(30, 30, x, y, max_length_right, max_length_left,
+                                  texture='textures/platform.jpeg')
+                    enemies.add(enemy)
+                    all_sprites.add(enemy)
             elif element == 'S':
                 player_x, player_y = x, y
             x += 30
@@ -154,6 +156,10 @@ class Player(Entity):
             else:
                 self.in_air = True
 
+        for enemy in enemies:
+            if pygame.sprite.collide_rect(self, enemy):
+                self.health -= 25  # TODO сделать удары
+
         if self.is_onground:
             self.in_air = False
         self.is_onground = False
@@ -178,26 +184,26 @@ class Enemy(Entity):
         super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True, health=100)
         self.max_length_right = max_length_right
         self.max_length_left = max_length_left
-        self.max_length_vel = max_length_right
+        self.x_vel = max_length_right
 
-        if self.max_length_vel - self.size_x == 0:
+        if self.x_vel - self.size_x == 0:
             self.facing = -1
         else:
             self.facing = 1
 
     def update(self):
         self.rect.x += (self.moving_velocity - 3) * self.facing
-        self.max_length_vel -= (self.moving_velocity - 3) * self.facing
+        self.x_vel -= (self.moving_velocity - 3) * self.facing
 
-        if self.max_length_vel - self.size_x == 0 and self.facing == 1:
+        if self.x_vel - self.size_x == 0 and self.facing == 1:
             self.facing = -1
-
-        if self.max_length_vel > self.max_length_right + self.max_length_left and self.facing == -1:
+        elif self.x_vel > self.max_length_right + self.max_length_left and self.facing == -1:
             self.facing = 1
 
         for platform in platforms:
-            if pygame.sprite.collide_rect(self, platform) and self != platform:
+            if pygame.sprite.collide_rect(self, platform):
                 self.facing = -1 if self.facing == 1 else 1
+                self.is_on_ground = True
 
     def draw(self, screen):
         screen.blit(self.image, (self.rect.x, self.rect.y))
@@ -242,16 +248,16 @@ class Bullet(pygame.sprite.Sprite):
 
 class Camera:
     def __init__(self):
-        self.x = 0
-        self.y = 0
+        self.dx = 0
+        self.dy = 0
 
     def apply(self, obj):
-        obj.rect.x += self.x
-        obj.rect.y += self.y
+        obj.rect.x += self.dx
+        obj.rect.y += self.dy
 
     def update(self, target):
-        self.x = -(target.rect.x + target.rect.w // 2 - SIZE_X // 2)
-        self.y = -(target.rect.y + target.rect.h // 2 - SIZE_Y // 2)
+        self.dx = -(target.rect.x + target.rect.w // 2 - SIZE_X // 2)
+        self.dy = -(target.rect.y + target.rect.h // 2 - SIZE_Y // 2)
 
 
 def main(level):
@@ -262,7 +268,7 @@ def main(level):
 
     platforms, player_x, player_y = convert_level(level)  # Level передается через level_screen и start_screen
 
-    player = Player(50, 50, player_x, player_y - 20, texture='entities/arrow.png')  # TODO Поменять файл
+    player = Player(50, 50, player_x, player_y, texture='entities/arrow.png')  # TODO Поменять файл
     all_sprites.add(player)
 
     bullets = []
@@ -288,10 +294,12 @@ def main(level):
                 running = False
             if event.type == pygame.KEYDOWN and event.key in [pygame.K_LEFT, pygame.K_a]:
                 left = True
-                facing = -1  # Запоминаем направление пули
+                if not right:
+                    facing = -1
             if event.type == pygame.KEYDOWN and event.key in [pygame.K_RIGHT, pygame.K_d]:
                 right = True
-                facing = 1  # Запоминаем направление пули
+                if not left:
+                    facing = 1  # Запоминаем направление пули
             if event.type == pygame.KEYUP and event.key in [pygame.K_RIGHT, pygame.K_d]:
                 right = False
             if event.type == pygame.KEYUP and event.key in [pygame.K_LEFT, pygame.K_a]:
@@ -303,7 +311,7 @@ def main(level):
                                                             pygame.K_SPACE]:
                 up = False
 
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not paused:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3 and not paused:
                 bullet = Bullet(player.rect.x + 25 // 2, player.rect.y + 25 // 2,
                                 5, (100, 255, 0), facing)
                 shots.add(bullet)
@@ -326,7 +334,8 @@ def main(level):
             enemies.draw(screen)
 
             for bullet in bullets:
-                if SIZE_X > bullet.x > 0 and not pygame.sprite.spritecollideany(bullet, obstacles):
+                if SIZE_X > bullet.x > 0 and not pygame.sprite.spritecollideany(bullet, obstacles)\
+                        and not pygame.sprite.spritecollideany(bullet, enemies):
                     bullet.rect.x += bullet.speed
                 else:
                     bullets.pop(bullets.index(bullet))
