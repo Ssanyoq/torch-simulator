@@ -52,7 +52,25 @@ def convert_level(level, path='misc/levels'):
 
     x = y = 0
     count = 0
+    max_string_length = int(len(max(level, key=lambda x: len(x))))
+    # Чтобы края закрывать красивым чем-нибудь
+
+    for i in range(5):
+        # Сделано для красивых краев, чтобы не было белых частей
+        for _ in range(max_string_length + 3):
+            platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
+            all_sprites.add(platform)
+            platforms.append(platform)
+            x += 30
+        x = 0
+        y += 30
+
     for row in level:
+        for i in range(3):
+            platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
+            all_sprites.add(platform)
+            platforms.append(platform)
+            x += 30
         for element in row:
             if element == "-":
                 platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
@@ -80,11 +98,26 @@ def convert_level(level, path='misc/levels'):
             else:
                 air = Air(30, 30, x, y, color=AIR_COLOR)
                 decoratives.append(air)
+            x += 30
 
+        for i in range(max_string_length + 3 - (len(row) + 3)):
+            platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
+            all_sprites.add(platform)
+            platforms.append(platform)
             x += 30
         count += 1
         y += 30
         x = 0
+
+    for i in range(5):
+        # Сделано для красивых краев, чтобы не было белых частей
+        for _ in range(max_string_length + 3):
+            platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
+            all_sprites.add(platform)
+            platforms.append(platform)
+            x += 30
+        x = 0
+        y += 30
 
     return platforms, decoratives, player_x, player_y
 
@@ -340,8 +373,9 @@ class Camera:
             self.x = -target.delta_x
         else:
             self.x = 0
-        if target.rect.centery + target.delta_y > SIZE_Y - 50 - self.y or \
-                target.rect.centery + target.delta_y < 50 + self.y:
+        if target.rect.centery + target.delta_y > SIZE_Y - 120 - self.y:
+            self.y = -GRAVITY_FORCE
+        elif target.rect.centery + target.delta_y < 120 + self.y:
             self.y = -target.delta_y
         else:
             self.y = 0
