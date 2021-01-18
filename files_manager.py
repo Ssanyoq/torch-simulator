@@ -16,3 +16,44 @@ def check_if_changed(file_path, since):
     print(last_change_time)
     print(since)
     return since <= last_change_time
+
+
+def encode_file(file):
+    '''
+    Ну это типа кодировка, просто чтобы немного защищеннее было
+    file - относительный путь файла от программы
+    Вызывает ошибку, если его нету
+    Ничего не возвращает, изменяет файл
+    '''
+    file = pathlib.Path(file)
+    assert file.exists(), f"File {file} does not exist"
+    with open(file, mode='r', encoding='utf-8') as f:
+        file_data = f.read()
+    new_data = ''
+    count = 0
+    for symbol in file_data:
+        count += 1
+        new_data += chr(ord(symbol) + count)
+    with open(file, mode='w', encoding='utf-8') as f:
+        f.write(new_data)
+
+
+def decode_file(file):
+    '''
+    Ну это типа декодировка, просто чтобы немного защищеннее было
+    file - относительный путь файла от программы
+    Вызывает ошибку, если его нету
+    Ничего не возвращает, изменяет файл
+    '''
+    file = pathlib.Path(file)
+    assert file.exists(), f"File {file} does not exist"
+    with open(file, mode='r', encoding='utf-8') as f:
+        file_data = f.read()
+    new_data = ''
+    count = 0
+    for symbol in file_data:
+        count += 1
+        new_data += chr(ord(symbol) - count)
+
+    with open(file, mode='w', encoding='utf-8') as f:
+        f.write(new_data)
