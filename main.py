@@ -4,6 +4,7 @@ import pygame
 import sys
 import os
 import menu
+import files_manager
 
 GRAVITY_FORCE = 20
 SIZE = SIZE_X, SIZE_Y = 1200, 720
