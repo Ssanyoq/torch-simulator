@@ -48,7 +48,7 @@ def convert_level(level, path='misc/levels'):
                 max_length_right = a[x // 30:].index(' ') * 30
                 max_length_left = a[:x // 30][::-1].index(' ') * 30
                 if not max_length_right == max_length_left == 0:
-                    # Если враг не на платформе, то мы его не создаем
+                    # Если враг не на платформе, то мы его не создаем :(
                     enemy = Enemy(30, 30, x, y, max_length_right, max_length_left,
                                   texture='textures/platform.jpeg')
                     enemies.add(enemy)
@@ -158,7 +158,7 @@ class Player(Entity):
 
         for enemy in enemies:
             if pygame.sprite.collide_rect(self, enemy):
-                self.health -= 25  # TODO сделать удары
+                self.health -= 1  # TODO сделать удары рагов
 
         if self.is_onground:
             self.in_air = False
@@ -269,9 +269,10 @@ def main(level):
     platforms, player_x, player_y = convert_level(level)  # Level передается через level_screen и start_screen
 
     player = Player(50, 50, player_x, player_y, texture='entities/arrow.png')  # TODO Поменять файл
-    all_sprites.add(player)
+    all_sprites.add(player)  # Создаем персонажа
 
     bullets = []
+    bullets_quantity = 10
     facing = 1  # Направление пуль, изначально пули летят вправо
 
     camera = Camera()  # Создаем камеру
@@ -294,12 +295,8 @@ def main(level):
                 running = False
             if event.type == pygame.KEYDOWN and event.key in [pygame.K_LEFT, pygame.K_a]:
                 left = True
-                if not right:
-                    facing = -1
             if event.type == pygame.KEYDOWN and event.key in [pygame.K_RIGHT, pygame.K_d]:
                 right = True
-                if not left:
-                    facing = 1  # Запоминаем направление пули
             if event.type == pygame.KEYUP and event.key in [pygame.K_RIGHT, pygame.K_d]:
                 right = False
             if event.type == pygame.KEYUP and event.key in [pygame.K_LEFT, pygame.K_a]:
@@ -311,11 +308,19 @@ def main(level):
                                                             pygame.K_SPACE]:
                 up = False
 
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3 and not paused:
+            if player.rect.x == 570:
+                facing = -1
+            elif player.rect.x == 580:
+                facing = 1
+            # Стреляем туда куда движется игрок
+
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3 and not paused\
+                    and bullets_quantity > 0:
                 bullet = Bullet(player.rect.x + 25 // 2, player.rect.y + 25 // 2,
                                 5, (100, 255, 0), facing)
                 shots.add(bullet)
                 bullets.append(bullet)
+                bullets_quantity -= 1
 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 paused = not paused
@@ -333,13 +338,20 @@ def main(level):
             enemies.update()
             enemies.draw(screen)
 
+            if player.health < 0:
+                menu.end_screen(screen, False, level)
+
+            for hit in pygame.sprite.groupcollide(enemies, shots, True, True):
+                enemies.remove(hit)  # Убиваем врага если по нему попала пуля
+
             for bullet in bullets:
                 if SIZE_X > bullet.x > 0 and not pygame.sprite.spritecollideany(bullet, obstacles)\
                         and not pygame.sprite.spritecollideany(bullet, enemies):
                     bullet.rect.x += bullet.speed
+                    # Если пуля не вышла за экран и не попала по платформе или врагу она литит дальше
                 else:
                     bullets.pop(bullets.index(bullet))
-                    shots.remove(bullet)
+                    shots.remove(bullet) # Удаляем пулю
 
             shots.update(bullets)
             shots.draw(screen)
@@ -348,6 +360,10 @@ def main(level):
 
             screen.blit(darkness_area, darkness_rect)
             screen.set_clip(None)
+
+            color = 'White' if bullets_quantity > 0 else 'Red'
+            menu.draw_text(screen, [str(bullets_quantity)], 0, 0, color, size=75, text_coord_2=0)
+            menu.draw_text(screen, [str(player.health)], 0, 0, 'Green', size=75, text_coord_2=1105)
 
             pygame.display.flip()
             clock.tick(60)

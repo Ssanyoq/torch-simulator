@@ -53,7 +53,8 @@ def end_screen(screen, victory, level):
                             pass  # Загружаем следующий уровень
                         else:
                             running = False
-                            pass  # Перезагружаем уровень
+                            main.main(level)
+
                         if button.y == 500:
                             running = False
                             start_screen()
