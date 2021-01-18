@@ -311,15 +311,9 @@ class Platform(pygame.sprite.Sprite):
     def generate_pebbles(self, k):
         """Генерирует k камешков"""
         for i in range(k):
-            pos_x = random.randint(self.size_x // 10, self.size_x - self.size_x // 10)
-            pos_y = random.randint(self.size_y // 10, self.size_y - self.size_y // 10)
-            # чтобы отступы были по краям
-            width = random.randint(5, 15)
-            height = random.randint(5, 15)
-            if width + pos_x >= self.size_x - 2:
-                width = self.size_x - pos_x - 2
-            if height + pos_y >= self.size_y - 2:
-                height = self.size_y - pos_y - 2
+            width = height = random.randint(5, 10)
+            pos_x = random.randint(1, self.size_x - width - 1)
+            pos_y = random.randint(1, self.size_y - height - 1)
             # Можно было просто 2 раза расчитать pos_x и y,
             # но тогда камешки могут быть очень большими
 
@@ -374,13 +368,12 @@ class Camera:
         else:
             self.x = 0
         if target.rect.centery + target.delta_y > SIZE_Y - 120 - self.y:
-            self.y = -GRAVITY_FORCE
+            self.y = -target.delta_y if target.delta_y != 0 else -GRAVITY_FORCE
+
         elif target.rect.centery + target.delta_y < 120 + self.y:
             self.y = -target.delta_y
         else:
             self.y = 0
-        # self.x = -(target.rect.centerx - SIZE_X // 2)
-        # self.y = -(target.rect.centery - SIZE_Y // 2)
 
 
 class Air(pygame.sprite.Sprite):
@@ -405,7 +398,7 @@ def main(level):
     pygame.display.set_caption(WINDOW_CAPTION)
     screen = pygame.display.set_mode(SIZE)
 
-    platforms, decoratives, player_x, player_y = convert_level('level_1')
+    platforms, decoratives, player_x, player_y = convert_level(level)
     player = Player(50, 50, player_x, player_y - 20,
                     texture='entities/arrow.png')  # TODO Поменять файл
     all_sprites.add(player)
