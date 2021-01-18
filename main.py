@@ -106,6 +106,17 @@ def load_image(name, color_key=None):
     return image
 
 
+def clear_stuff(screen):
+    global obstacles, player, entities, enemies, all_sprites, shots, platforms
+    player = None
+    obstacles = pygame.sprite.Group()
+    entities = pygame.sprite.Group()
+    enemies = pygame.sprite.Group()
+    all_sprites = pygame.sprite.Group()
+    shots = pygame.sprite.Group()
+    platforms = []
+
+
 def change_color(color, center_x, center_y):
     # for light in lightsources: надо сделать, когда будут факелы
     #    pass
@@ -262,6 +273,7 @@ class Enemy(Entity):
 
 class Platform(pygame.sprite.Sprite):
     """Наследуется от sprite только для того, чтобы камера работала"""
+
     def __init__(self, size_x, size_y, x, y, color=(255, 255, 255), pebble_color=(50, 50, 50)):
         super().__init__(obstacles)
         self.size_x, self.size_y = size_x, size_y
@@ -464,7 +476,8 @@ def main(level):
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit()  # Поправить ошибку
+                    running = False
+                    break
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     for button in buttons:
                         if pygame.Rect.collidepoint(button, pygame.mouse.get_pos()):
@@ -472,6 +485,7 @@ def main(level):
                                 paused = False
                             else:
                                 screen.fill((0, 0, 0))
+                                clear_stuff(screen)
                                 paused = False
                                 running = False
                                 menu.start_screen()
