@@ -1,3 +1,4 @@
+import math
 import os
 import pygame
 import main
@@ -8,7 +9,8 @@ pygame.init()
 
 def draw_text(screen, text, pos_x, pos_y, color="White", font_size=50):
     """
-    Рисует текст по заданным параметрам
+    Рисует текст по заданным параметрам,
+    если None, то ничего не рисует
     :param screen: полотно для рисования
     :param text: текст для рисования
     :param pos_x: x левого верхнего угла текста
@@ -58,56 +60,125 @@ def get_levels_names(folder='misc/levels'):
     return level_names
 
 
+def get_current_levels(all_levels, page):
+    """
+    :param all_levels: список с названиями всех уровней
+    :param page: номер страницы, нумерация с 0
+
+    :return: картеж с 2-мя списками:
+    первый список - названия кнопок,
+    второй - названия самих файлов с уровнями
+    Названия кнопок - это просто названия файлов,
+    начинающиеся с заглавной буквы и
+    все '_' заменены на ' '
+    Если page больше, чем
+    math.ceil(len(all_levels) / 5), то
+    просто вернет ([],[])
+    (прикольный смайлик кстати)
+    """
+    current_levels = all_levels[page * 5:(page + 1) * 5]
+    current_namings = [name.replace("_", " ").capitalize() for name in current_levels]
+    return current_levels, current_namings
+
+
 def level_screen(menu_screen):
     menu_screen.fill((0, 0, 0))
 
     # Создание кнопок
     button_pos_y = 50
     buttons = []
+    # Список вида [[rect кнопки, файл или функция, которой соответствует эта кнопка]]
+    # Вернется в меню, если было нажатие на кнопку с индексом 5
+    # Тут нету кнопок вправо и влево (они другого размера)
 
+    # Подготовка надписей на кнопках с уровнями
+    all_levels = get_levels_names('misc/levels')
+    current_levels, buttons_names = get_current_levels(all_levels, 0)
+    current_page = 0
+
+    text_pos_y = 65
+    # Начальный button_pos_y + 1/4 размера кнопки, чтобы ровно посередине
+    text_delta = 100
+
+    # Рисование кнопок
     for i in range(5):
-        button = pygame.draw.rect(menu_screen, (200, 200, 200), (350, button_pos_y, 530, 60))
+        button_color = (0, 0, 0) if len(buttons_names) - 1 < i else (200, 200, 200)
+        button = pygame.draw.rect(menu_screen, button_color, (350, button_pos_y, 530, 60))
         button_pos_y += 100
-        buttons.append(button)
+        if len(current_levels) - 1 < i:
+            # Значит на странице должно быть меньше 5 кнопок
+            buttons.append([button, None])
+        else:
+            buttons.append([button, buttons_names[i]])
+
     button = pygame.draw.rect(menu_screen, (200, 10, 10), (350, button_pos_y, 530, 60))
-    buttons.append(button)
+    buttons.append([button, None])
     button_pos_y += 100
     left_button = pygame.draw.rect(menu_screen, (200, 200, 200), (350, button_pos_y, 245, 40))
     right_button = pygame.draw.rect(menu_screen, (200, 200, 200),
                                     (350 + 265 + 20, button_pos_y, 245, 40))
 
-    # Создание надписей на кнопках
-    all_levels = get_levels_names('misc/levels')
-    current_page = 0
-    buttons_names = []
-    # Название кнопок
-    for i in range(5):
-        tmp_name = all_levels[i].replace('_', ' ').capitalize()
-        buttons_names.append(tmp_name)
-    text_pos_y = 65  # Начальный button_pos_y + 1/4 размера кнопки, чтобы ровно посередине
-    text_delta = 100
+    # Отрисовка текста
+    draw_texts(menu_screen, buttons_names, 355, text_pos_y, text_delta)
+    draw_text(menu_screen, "Back to menu", 500, text_pos_y + text_delta * 5)  # x на глазок
+    draw_text(menu_screen, "<", 472, text_pos_y + text_delta * 6 - 15)
+    draw_text(menu_screen, ">", 757, text_pos_y + text_delta * 6 - 15)
 
-    draw_texts(menu_screen, buttons_names, 550, text_pos_y, text_delta)
-    draw_text(menu_screen, "Quit", 575, text_pos_y + text_delta * 5)  # x на глазок
+    change_buttons = False
+    # Переменная чтобы красивее было
 
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                for button in buttons:
-                    # Проверка на совпадение координаты мыши с одной из кнопок
-                    if pygame.Rect.collidepoint(button, pygame.mouse.get_pos()):
-                        # По координате Y мы можем узнать на какую кнопку нажал пользователь
-                        # т.е у первой кнопки Y равен 100, у второй 200 и т.д
-                        if button.y == 600:
-                            running = False
-                            start_screen()
-                            return None
-                        else:
-                            main.main('level_' + str(button.y // 100))
-                            return None
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    for i, button in enumerate(buttons):
+                        # Проверка на совпадение координаты мыши с одной из кнопок
+                        if pygame.Rect.collidepoint(button[0], pygame.mouse.get_pos()):
+                            if i == 5:
+                                start_screen()
+                                return None
+                            elif button[1] is None:
+                                continue
+                            else:
+                                main.main(button[1])
+                                return None
+
+                    if pygame.Rect.collidepoint(left_button, pygame.mouse.get_pos()):
+                        current_page -= 1 if current_page != 0 else 0
+                        change_buttons = True
+                    if pygame.Rect.collidepoint(right_button, pygame.mouse.get_pos()):
+                        if current_page < math.ceil(len(all_levels) / 5) - 1:
+                            current_page += 1
+                            change_buttons = True
+            if change_buttons:
+                change_buttons = False
+                current_levels, buttons_names = get_current_levels(all_levels, current_page)
+                for i in range(5):
+                    if len(buttons_names) - 1 < i:
+                        buttons[i][1] = None
+                    else:
+                        buttons[i][1] = buttons_names[i]
+                button_pos_y = 50
+
+                # Отрисовка новых кнопок и названий
+                for i in range(5):
+                    if len(buttons_names) - 1 < i:
+                        color = (0, 0, 0)
+                    else:
+                        color = (200, 200, 200)
+                    pygame.draw.rect(menu_screen, color,
+                                     (350, button_pos_y, 530, 60))
+                    button_pos_y += 100
+
+                draw_texts(menu_screen, buttons_names, 355, text_pos_y, text_delta)
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    start_screen()
+                    return None
         pygame.display.flip()
 
 
@@ -121,16 +192,23 @@ def start_screen():
     levels_button = pygame.draw.rect(screen, (200, 200, 200), (350, 320, 530, 60))
     exit_button = pygame.draw.rect(screen, (200, 170, 170), (350, 410, 530, 60))
     radio_button = pygame.draw.rect(screen, (150, 170, 170), (1110, 690, 75, 25))
-    # Присваивание только для того, чтобы было понятно, какая кнопка к чему
+    buttons = [
+        [pygame.rect.Rect(350, 230, 530, 60), (210, 200, 200), 'Start'],
+        [pygame.rect.Rect(350, 320, 530, 60), (200, 200, 200), 'Levels'],
+        [pygame.rect.Rect(350, 410, 530, 60), (200, 170, 170), 'Exit'],
+        [pygame.rect.Rect(1110, 690, 75, 25), (150, 170, 170), 'Music'],
+    ]
+    # Список формата [[rect кнопки, RGB цвет, надпись на кнопке]]
+    # Надписи будут сделаны белым цветом
 
-    intro_text = ["Start", "Levels", "Exit"]
-    text_pos_y = 245  # start_button.y + 60 // 4
-    text_delta = 90
-
-    draw_texts(screen, intro_text, 550, text_pos_y, text_delta)
-
-    screen.blit(pygame.font.Font(None, 25).render('Music', True, pygame.Color('White')),
-                (1125, 695, 75, 25))
+    for i, button in enumerate(buttons):
+        pygame.draw.rect(screen, button[1], button[0])
+        if i == len(buttons) - 1:
+            # Значит это кнопка радио
+            draw_text(screen, button[2], 1125, 695, font_size=25)
+        else:
+            draw_text(screen, button[2], 550, 245 + 90 * i)
+            # 245 = button[0][0].y + button[0][0].height // 4
 
     radio = pygame.mixer.Sound('misc/sounds/music_in_menu.mp3')
     radio.play()
@@ -143,33 +221,28 @@ def start_screen():
             if event.type == pygame.QUIT:
                 running = False
                 break
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if pygame.mouse.get_pos()[0] >= 350 and pygame.mouse.get_pos()[1] >= 230:
-                    if pygame.mouse.get_pos()[0] <= 880 and pygame.mouse.get_pos()[1] <= 280:
-                        radio.stop()
-                        main.main('level_1')  # Загружаем непройденный уровень
-                        return None
-
-                if pygame.mouse.get_pos()[0] >= 350 and pygame.mouse.get_pos()[1] >= 320:
-                    if pygame.mouse.get_pos()[0] <= 880 and pygame.mouse.get_pos()[1] <= 380:
-                        radio.stop()
-                        level_screen(screen)  # Отрисовываем меню с уровнями
-                        return None
-
-                if pygame.mouse.get_pos()[0] >= 350 and pygame.mouse.get_pos()[1] >= 410:
-                    if pygame.mouse.get_pos()[0] <= 880 and pygame.mouse.get_pos()[1] <= 470:
-                        running = False
-
-                if pygame.mouse.get_pos()[0] >= 1110 and pygame.mouse.get_pos()[1] >= 690:
-                    if pygame.mouse.get_pos()[0] <= 1185 and pygame.mouse.get_pos()[1] <= 715:
-                        if check_radio:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for button in buttons:
+                    if pygame.Rect.collidepoint(button[0], pygame.mouse.get_pos()):
+                        if button[2] == "Start" or button[2] == "Levels":
+                            # TODO сделать что-то со start и levels
                             radio.stop()
-                            check_radio = False
-                        else:
-                            radio = pygame.mixer.Sound('misc/sounds/music_in_menu.mp3')
-                            radio.play()
-                            check_radio = True
-                            # TODO доделать радио
+                            level_screen(screen)  # Отрисовываем меню с уровнями
+                            return None
+
+                        if button[2] == "Exit":
+                            running = False
+                            break
+
+                        if button[2] == "Music":
+                            if check_radio:
+                                radio.stop()
+                                check_radio = False
+                            else:
+                                radio = pygame.mixer.Sound('misc/sounds/music_in_menu.mp3')
+                                radio.play()
+                                check_radio = True
+                                # TODO доделать радио
         pygame.display.flip()
         clock.tick(100)
     radio.stop()

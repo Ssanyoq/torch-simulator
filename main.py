@@ -452,7 +452,6 @@ def main(level):
 
             player.update(left, right, up)
             player.draw(screen)
-            # obstacles.draw(screen)
 
             screen.blit(darkness_area, darkness_rect)
             screen.set_clip(None)
@@ -461,37 +460,48 @@ def main(level):
             clock.tick(60)
         else:  # TODO починить отрисовку
             button_pos_y = 300
+            up, left, right = False, False, False
             buttons = []
+            # Список вида [[rect кнопки, функция, которой соответствует эта кнопка]]
+            # Вернется в меню, если было нажатие на кнопку с индексом 5
+            # Можно было сделать просто если индекс == чему-то, то что-то вызвать,
+            # но тогда неуниверсально
 
             for i in range(2):
                 button = pygame.draw.rect(screen, (210, 210, 210), (350, button_pos_y, 530, 60))
                 button_pos_y += 100
-                buttons.append(button)
+                buttons.append([button, None])
 
-            intro_text = ["Continue", "    Quit"]
+            buttons_texts = ["    Continue", "Back to menu"]
             text_pos_y = 315
             text_delta = 100
 
-            menu.draw_texts(screen, intro_text, 525, text_pos_y, text_delta)
+            menu.draw_texts(screen, buttons_texts, 500, text_pos_y, text_delta)
 
+            for i in range(len(buttons)):
+                text = buttons_texts[i].lower().strip()
+                # Чтобы красиво
+                buttons[i] = [buttons[i][0], text]
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
                     break
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    for button in buttons:
-                        if pygame.Rect.collidepoint(button, pygame.mouse.get_pos()):
-                            if button.y == 300:
-                                paused = False
-                            else:
-                                screen.fill((0, 0, 0))
-                                clear_stuff(screen)
-                                paused = False
-                                running = False
-                                menu.start_screen()
+                    if event.button == 1:
+                        for button in buttons:
+                            if pygame.Rect.collidepoint(button[0], pygame.mouse.get_pos()):
+                                if button[1] == 'continue':
+                                    paused = False
+                                elif button[1] == 'back to menu':
+                                    screen.fill((0, 0, 0))
+                                    clear_stuff(screen)
+                                    menu.start_screen()
+                                    return None
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    paused = not paused
                 pygame.display.flip()
     pygame.quit()
 
 
 if __name__ == '__main__':
-    main('level_1')
+    main('level_1') # TODO изменить
