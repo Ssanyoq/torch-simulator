@@ -79,7 +79,7 @@ def convert_level(level, path='misc/levels'):
                 obstacles.add(platform)
                 all_sprites.add(platform)
             elif element == "*":
-                spike = Spike(30, 30, x, y, texture='textures/spike.png')
+                spike = Spike(30, 30, x, y) # TODO
                 obstacles.add(spike)
                 all_sprites.add(spike)
                 platforms.append(spike)

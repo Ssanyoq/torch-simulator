@@ -115,7 +115,7 @@ def level_screen(menu_screen):
             # Значит на странице должно быть меньше 5 кнопок
             buttons.append([button, None])
         else:
-            buttons.append([button, buttons_names[i]])
+            buttons.append([button, current_levels[i]])
 
     button = pygame.draw.rect(menu_screen, (200, 10, 10), (350, button_pos_y, 530, 60))
     buttons.append([button, None])
