@@ -460,19 +460,19 @@ def main(level):
             pygame.display.flip()
             clock.tick(60)
         else:  # TODO починить отрисовку
-            button_coord = 300
+            button_pos_y = 300
             buttons = []
 
             for i in range(2):
-                button = pygame.draw.rect(screen, (210, 210, 210), (350, button_coord, 530, 60))
-                button_coord += 100
+                button = pygame.draw.rect(screen, (210, 210, 210), (350, button_pos_y, 530, 60))
+                button_pos_y += 100
                 buttons.append(button)
 
-            intro_text = ["Continue", "Quit"]
-            text_coord = 255
-            text_delta = 60
+            intro_text = ["Continue", "    Quit"]
+            text_pos_y = 315
+            text_delta = 100
 
-            menu.draw_text(screen, intro_text, text_coord, text_delta)
+            menu.draw_texts(screen, intro_text, 525, text_pos_y, text_delta)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
