@@ -71,13 +71,19 @@ def get_current_levels(all_levels, page):
     Названия кнопок - это просто названия файлов,
     начинающиеся с заглавной буквы и
     все '_' заменены на ' '
+    Также название урезано до 20 символов
     Если page больше, чем
     math.ceil(len(all_levels) / 5), то
     просто вернет ([],[])
     (прикольный смайлик кстати)
     """
     current_levels = all_levels[page * 5:(page + 1) * 5]
-    current_namings = [name.replace("_", " ").capitalize() for name in current_levels]
+    current_namings = []
+    for name in current_levels:
+        new_name = name.replace("_", " ").capitalize()
+        if len(new_name) > 20:
+            new_name = new_name[:20] + '...'
+        current_namings.append(new_name)
     return current_levels, current_namings
 
 
