@@ -145,7 +145,8 @@ def load_image(name, color_key=None):
 
 
 def clear_stuff(screen):
-    global obstacles, player, entities, enemies, all_sprites, shots, platforms
+    global obstacles, player, entities, enemies, all_sprites, shots, platforms, air_blocks, \
+        light_sources
     player = None
     obstacles = pygame.sprite.Group()
     entities = pygame.sprite.Group()
@@ -153,6 +154,8 @@ def clear_stuff(screen):
     all_sprites = pygame.sprite.Group()
     shots = pygame.sprite.Group()
     platforms = []
+    air_blocks = []
+    light_sources = []
 
 
 def change_color(color, center_x, center_y, light_x,
@@ -569,7 +572,7 @@ def main(level):
                 paused = not paused
 
         if not paused:  # Если игра не на паузе отрисовываем главную сцену, иначе меню паузы
-            screen.fill((255, 255, 255))
+            screen.fill((0, 0, 0))
 
             enemies.update()
             enemies.draw(screen)
