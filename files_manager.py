@@ -46,8 +46,10 @@ def decode_file(file):
     for symbol in file_data:
         count += 1
         count = count % 5
-        new_data += chr(ord(symbol) - count)
-
+        if symbol == '\n':
+            new_data += symbol
+        else:
+            new_data += chr(ord(symbol) - count)
     return new_data
 
 
@@ -79,12 +81,7 @@ def load_player_data(file='misc/playerdata.txt'):
     except Exception:
         torches = 0
     levels_data = {}
-    for i in range(1,len(data)):
-        # if ':' in data or '?' in data or '<' in data or \
-        #         '>' in data or '/' in data or '\\' in data or \
-        #         '"' in data or '*' in data or '|' in data:
-        #     # Это проверка на наличие запрещенных
-        #     continue
+    for i in range(1, len(data)):
         level_data = data[i].split('/')
         if len(level_data) != 2:
             continue
@@ -95,7 +92,7 @@ def load_player_data(file='misc/playerdata.txt'):
             levels_data[level_data[0]] = float(level_data[1])
         except ValueError:
             continue
-    return (coins, torches, levels_data)
+    return coins, torches, levels_data
 
 
 def save_player_data(coins=0, torches=0, levels_data={}, file='misc/playerdata.txt'):
@@ -118,3 +115,16 @@ def save_player_data(coins=0, torches=0, levels_data={}, file='misc/playerdata.t
 
     with open(file, mode='w', encoding='utf-8') as f:
         f.write(file_data)
+
+
+def check_if_completed(completing_time, file, path='misc/levels/', extension='.txt'):
+    """
+    Проверяет,пройден уровень или нет
+    Если последнее
+    """
+    change = last_change(path + file + extension)
+    if change > completing_time:
+        return False
+    else:
+        return True
+

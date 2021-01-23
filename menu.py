@@ -1,6 +1,8 @@
 import math
 import os
 import pygame
+
+import files_manager
 import main
 
 radio = None
@@ -60,6 +62,12 @@ def get_levels_names(folder='misc/levels'):
     return level_names
 
 
+def save_data(coins, torches, levels, is_changed):
+    if not is_changed:
+        return None
+    files_manager.save_player_data(coins, torches, levels)
+
+
 def get_current_levels(all_levels, page):
     """
     :param all_levels: список с названиями всех уровней
@@ -87,13 +95,75 @@ def get_current_levels(all_levels, page):
     return current_levels, current_namings
 
 
+def shop_screen(screen):
+    screen.fill((0, 0, 0))
+
+    button_pos_y = 250
+    # y первой кнопки
+    buttons = []
+    coins, torches, levels = files_manager.load_player_data()
+    # Список вида [[<rect кнопки>, <надпись на кнопке>]]
+    # Вернется в меню, если было нажатие на кнопку с индексом 2
+    buttons_names = ['Buy torch for 4 coins', f'You have {torches} torches', 'Back to menu']
+    for i in range(len(buttons_names)):
+        button = pygame.draw.rect(screen, (200, 200, 200), (350, button_pos_y, 530, 60))
+        buttons.append([button, buttons_names[i]])
+        button_pos_y += 100
+    text_pos_y = 265
+    text_delta = 100
+    draw_text(screen, "Shop", 550, 65, font_size=60)
+    draw_texts(screen, buttons_names, 355, text_pos_y, text_delta)
+
+    data_changed = False
+    # Переменная для того, чтобы понять, были ли какие-либо
+    # изменения в количестве монет или факелов
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                save_data(coins, torches, levels, data_changed)
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    for i, button in enumerate(buttons):
+                        # Проверка на совпадение координаты мыши с одной из кнопок
+                        if pygame.Rect.collidepoint(button[0], pygame.mouse.get_pos()):
+                            if i == 2:
+                                save_data(coins, torches, levels, data_changed)
+                                start_screen()
+                                return None
+                            elif button[1] is None:
+                                continue
+                            elif button[1].startswith('Buy torch for'):
+                                price = int(button[1].split()[3])
+                                if coins < price:
+                                    continue
+                                else:
+                                    coins -= price
+                                    torches += 1
+                                    pygame.draw.rect(screen, (200, 200, 200), buttons[1][0])
+                                    draw_text(screen, f"You have {torches} torches", 355, 365)
+                                    data_changed = True
+
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    save_data(coins, torches, levels, data_changed)
+                    start_screen()
+                    return None
+        pygame.display.flip()
+
+
 def level_screen(menu_screen):
     menu_screen.fill((0, 0, 0))
 
     # Создание кнопок
     button_pos_y = 50
     buttons = []
-    # Список вида [[rect кнопки, файл или функция, которой соответствует эта кнопка]]
+    # Список вида [[<rect кнопки>, <файл или функция, которой соответствует эта кнопка>,
+    # <пройдено или нет>]]
+    # Пройдено или нет - True/False, для всех кнопок не под
+    # уровни этот флаг будет равен False
     # Вернется в меню, если было нажатие на кнопку с индексом 5
     # Тут нету кнопок вправо и влево (они другого размера)
 
@@ -106,6 +176,8 @@ def level_screen(menu_screen):
     # Начальный button_pos_y + 1/4 размера кнопки, чтобы ровно посередине
     text_delta = 100
 
+    coins, torches, levels_data = files_manager.load_player_data()
+
     # Рисование кнопок
     for i in range(5):
         button_color = (0, 0, 0) if len(buttons_names) - 1 < i else (200, 200, 200)
@@ -113,12 +185,15 @@ def level_screen(menu_screen):
         button_pos_y += 100
         if len(current_levels) - 1 < i:
             # Значит на странице должно быть меньше 5 кнопок
-            buttons.append([button, None])
+            buttons.append([button, None, False])
         else:
-            buttons.append([button, current_levels[i]])
-
+            if current_levels[i] in levels_data.keys() and files_manager.check_if_completed(
+                    levels_data[current_levels[i]], current_levels[i]):
+                buttons.append([button, current_levels[i], True])
+            else:
+                buttons.append([button, current_levels[i], False])
     button = pygame.draw.rect(menu_screen, (200, 10, 10), (350, button_pos_y, 530, 60))
-    buttons.append([button, None])
+    buttons.append([button, None, False])
     button_pos_y += 100
     left_button = pygame.draw.rect(menu_screen, (200, 200, 200), (350, button_pos_y, 245, 40))
     right_button = pygame.draw.rect(menu_screen, (200, 200, 200),
@@ -132,6 +207,9 @@ def level_screen(menu_screen):
 
     change_buttons = False
     # Переменная чтобы красивее было
+    for button in buttons:
+        if button[2]:
+            draw_text(menu_screen, "Пройдено", 790, button[0].y + 20, color="Green", font_size=25)
 
     running = True
     while running:
@@ -167,6 +245,12 @@ def level_screen(menu_screen):
                         buttons[i][1] = None
                     else:
                         buttons[i][1] = buttons_names[i]
+                        if current_levels[i] in levels_data.keys() and\
+                                files_manager.check_if_completed(
+                                levels_data[current_levels[i]], current_levels[i]):
+                            buttons[i][2] = True
+                        else:
+                            buttons[i][2] = False
                 button_pos_y = 50
 
                 # Отрисовка новых кнопок и названий
@@ -180,6 +264,10 @@ def level_screen(menu_screen):
                     button_pos_y += 100
 
                 draw_texts(menu_screen, buttons_names, 355, text_pos_y, text_delta)
+                for button in buttons:
+                    if button[2]:
+                        draw_text(menu_screen, "Пройдено", 790, button[0].y + 20, color="Green",
+                                  font_size=25)
 
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
@@ -194,13 +282,9 @@ def start_screen():
     SIZE = WIDTH, HEIGHT = 1200, 720
     screen = pygame.display.set_mode(SIZE)
 
-    start_button = pygame.draw.rect(screen, (210, 200, 200), (350, 230, 530, 60))
-    levels_button = pygame.draw.rect(screen, (200, 200, 200), (350, 320, 530, 60))
-    exit_button = pygame.draw.rect(screen, (200, 170, 170), (350, 410, 530, 60))
-    radio_button = pygame.draw.rect(screen, (150, 170, 170), (1110, 690, 75, 25))
     buttons = [
         [pygame.rect.Rect(350, 230, 530, 60), (210, 200, 200), 'Start'],
-        [pygame.rect.Rect(350, 320, 530, 60), (200, 200, 200), 'Levels'],
+        [pygame.rect.Rect(350, 320, 530, 60), (200, 200, 200), 'Shop'],
         [pygame.rect.Rect(350, 410, 530, 60), (200, 170, 170), 'Exit'],
         [pygame.rect.Rect(1110, 690, 75, 25), (150, 170, 170), 'Music'],
     ]
@@ -230,10 +314,14 @@ def start_screen():
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 for button in buttons:
                     if pygame.Rect.collidepoint(button[0], pygame.mouse.get_pos()):
-                        if button[2] == "Start" or button[2] == "Levels":
-                            # TODO сделать что-то со start и levels
+                        if button[2] == "Start":
                             radio.stop()
                             level_screen(screen)  # Отрисовываем меню с уровнями
+                            return None
+
+                        if button[2] == "Shop":
+                            radio.stop()
+                            shop_screen(screen)
                             return None
 
                         if button[2] == "Exit":
