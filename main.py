@@ -24,6 +24,7 @@ BRIGHTNESS_INFO = {
 PLATFORM_COLOR = (86, 72, 57)
 # Цвет платформы при максимальном освещении
 AIR_COLOR = (71, 57, 11)
+FINISH_COLOR = (81, 59, 128)
 
 obstacles = pygame.sprite.Group()
 entities = pygame.sprite.Group()
@@ -100,6 +101,9 @@ def convert_level(level, path='misc/levels'):
                 player_x, player_y = x, y
                 air = Air(30, 30, x, y, color=AIR_COLOR)
                 decoratives.append(air)
+            elif element == 'F':
+                finish = Air(30, 30, x, y, finish=True, color=FINISH_COLOR)
+                decoratives.append(finish)
             else:
                 air = Air(30, 30, x, y, color=AIR_COLOR)
                 decoratives.append(air)
@@ -227,6 +231,7 @@ class Player(Entity):
         # Способ сделать красивые падения
 
         self.in_air = False
+        self.won = False
 
         self.delta_x, self.delta_y = 0, 0
         self.torches = torches
@@ -428,16 +433,19 @@ class Camera:
 class Air(pygame.sprite.Sprite):
     """Сделано для красивого освещения"""
 
-    def __init__(self, size_x, size_y, x, y, color=(255, 255, 255)):
+    def __init__(self, size_x, size_y, x, y, finish=False, color=(255, 255, 255)):
         super().__init__(all_sprites)
         self.size_x, self.size_y = size_x, size_y
         self.x, self.y = x, y
         self.static_brightness = 0
         self.color = color
+        self.finish = finish
         self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
         air_blocks.append(self)
 
     def draw(self, screen):
+        if self.rect.colliderect(player.rect) and self.finish:
+            player.won = True
         tmp_color, brightness = change_color(self.color, self.rect.centerx, self.rect.centery,
                                              player.rect.centerx, player.rect.centery,
                                              self.static_brightness)
@@ -533,6 +541,9 @@ def main(level):
     paused = False
     running = True
     while running:
+        if player.won:
+            menu.win_window(screen)
+            return None
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False

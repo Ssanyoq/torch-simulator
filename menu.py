@@ -188,6 +188,19 @@ def level_screen(menu_screen):
         pygame.display.flip()
 
 
+def win_window(screen):
+    pygame.draw.rect(screen, (152, 130, 199), (300, 180, 600, 360))
+    draw_text(screen, "You won!", 490, 250, font_size=75)
+    draw_text(screen, "+ 5 coins", 530, 425)
+    pygame.draw.rect(screen,(200, 0, 0), (825, 465, 75, 75))
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+        pygame.display.flip()
+
+
 def start_screen():
     pygame.init()
     pygame.display.set_caption("Murky Gloom")
