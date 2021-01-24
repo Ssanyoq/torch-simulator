@@ -167,6 +167,30 @@ def change_color(color, center_x, center_y):
     return new_color
 
 
+class AnimatedSprite(pygame.sprite.Sprite):
+    def __init__(self, sheet, columns, rows, x, y):
+        super().__init__(all_sprites)
+        self.frames = []
+        self.cut_sheet(sheet, columns, rows)
+        self.image = self.frames[0]
+        self.rect = self.rect.move(x, y)
+
+    def cut_sheet(self, sheet, columns, rows):
+        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                                sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (self.rect.w * i, self.rect.h * j)
+                self.frames.append(sheet.subsurface(pygame.Rect(
+                    frame_location, self.rect.size)))
+
+    def update(self, x, y, frame):
+        if frame > 5:
+            frame = 0
+        self.image = self.frames[frame]
+        screen.blit(self.image, (x, y))
+
+
 class Entity(pygame.sprite.Sprite):
     def __init__(self, size_x, size_y, x, y, texture=None, is_collide=True, health=None):
         # texture - название файла, как в load_image
@@ -179,10 +203,15 @@ class Entity(pygame.sprite.Sprite):
         self.is_onground = False
         self.moving_velocity = 5
 
-        self.image = load_image(texture)
-        self.image = self.image
-        self.rect = self.image.get_rect()
-        self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
+        if texture is None:
+            self.image = pygame.Surface((size_x, size_y))
+            self.image.fill(pygame.Color((0, 0, 0)))
+            self.rect = pygame.Rect(x, y, size_x, size_y)
+        else:
+            self.image = load_image(texture)
+            self.image = self.image
+            self.rect = self.image.get_rect()
+            self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
 
         if health is None:
             self.is_immortal = True
@@ -193,23 +222,71 @@ class Player(Entity):
         super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True, health=100)
         self.jump_force = 20
         self.vel_y = GRAVITY_FORCE
+        self.facing = 1
         # Способ сделать красивые падения
 
         self.in_air = False
-
         self.delta_x, self.delta_y = 0, 0
+
+        self.frame = 0
+
+        self.stay_right = load_image('entities/player/stay_right.png')
+        self.jump_r = AnimatedSprite(load_image("entities/player/jump_right.png"), 6, 1, 50, 50)
+        self.run_r = AnimatedSprite(load_image("entities/player/run_right.png"), 6, 1, 50, 50)
+
+        self.stay_left = load_image('entities/player/stay_left.png')
+        self.jump_l = AnimatedSprite(load_image("entities/player/jump_left.png"), 6, 1, 50, 50)
+        self.run_l = AnimatedSprite(load_image("entities/player/run_left.png"), 6, 1, 50, 50)
 
     def update(self, left, right, up):
         self.delta_x = 0  # Общее изменение
         self.delta_y = 0  # за всю работу функции
-        if left:
-            self.delta_x = -self.moving_velocity
-        if right:
-            self.delta_x = self.moving_velocity
+
+        if self.frame > 29:
+            self.frame = 0
+
         if up:
             if not self.in_air:
                 self.vel_y = -self.jump_force
                 self.in_air = True
+            if self.facing == 1:
+                self.jump_r.update(self.rect.x, self.rect.y, self.frame // 5)
+                self.frame += 1
+            else:
+                self.jump_l.update(self.rect.x, self.rect.y, self.frame // 5)
+                self.frame += 1
+
+        if right:
+            self.facing = 1
+            self.delta_x = self.moving_velocity
+            if self.vel_y < 0:
+                self.jump_r.update(self.rect.x, self.rect.y, self.frame // 5)
+                self.frame += 1
+            elif self.vel_y == 0:
+                self.run_r.update(self.rect.x, self.rect.y, self.frame // 5)
+                self.frame += 1
+
+        if left:
+            self.facing -= 1
+            self.delta_x = -self.moving_velocity
+            if self.vel_y < 0:
+                self.jump_l.update(self.rect.x, self.rect.y, self.frame // 5)
+                self.frame += 1
+            elif self.vel_y == 0:
+                self.run_l.update(self.rect.x, self.rect.y, self.frame // 5)
+                self.frame += 1
+
+        if not (left or right or up) and self.vel_y == 0:  # Если стоим
+            if self.facing == 1:
+                screen.blit(self.stay_right, (self.rect.x, self.rect.y))
+            else:
+                screen.blit(self.stay_left, (self.rect.x, self.rect.y))
+
+        if self.vel_y > 0:  # Если падаем
+            if self.facing == 1:
+                self.jump_r.update(self.rect.x, self.rect.y, 4)
+            else:
+                self.jump_l.update(self.rect.x, self.rect.y, 4)
 
         self.vel_y += 1
         if self.vel_y > GRAVITY_FORCE:
@@ -222,7 +299,6 @@ class Player(Entity):
         # настоящий игрок столкнется с препятствием
 
         for platform in platforms:
-
             tmp_rect.y = self.rect.y
             tmp_rect.x = self.rect.x + self.delta_x
 
@@ -253,15 +329,8 @@ class Player(Entity):
         self.rect.x += self.delta_x
         self.rect.y += self.delta_y
 
-    def draw(self, screen):
-        screen.blit(self.image, (self.rect.x, self.rect.y))
-        # pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)  # - чтобы было удобно дебажить
-
     def get_coord(self):
-        return self.rect.x, self.rect.y
-
-    def kill(self):
-        pass
+        return self.rect.centerx, self.rect.centery
 
 
 class Enemy(Entity):
@@ -349,7 +418,7 @@ class Bullet(pygame.sprite.Sprite):
 
         self.image = pygame.Surface((2 * radius, 2 * radius))
         pygame.draw.circle(self.image, pygame.Color((255, 255, 0)), (radius, radius), radius)
-        self.rect = pygame.Rect(x, y, 2 * radius, 2 * radius)
+        self.rect = pygame.Rect(self.x, self.y, 2 * radius, 2 * radius)
 
 
 class Camera:
@@ -392,15 +461,14 @@ class Air(pygame.sprite.Sprite):
 
 
 def main(level):
-    global platforms, player
+    global platforms, player, screen
     pygame.init()
 
     pygame.display.set_caption(WINDOW_CAPTION)
     screen = pygame.display.set_mode(SIZE)
 
     platforms, decoratives, player_x, player_y = convert_level(level)
-    player = Player(50, 50, player_x, player_y - 20,
-                    texture='entities/arrow.png')  # TODO Поменять файл
+    player = Player(20, 50, player_x, player_y)
     all_sprites.add(player)
 
     bullets = []
@@ -445,7 +513,7 @@ def main(level):
                 return None
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not paused:
-                bullet = Bullet(player.rect.x + 25 // 2, player.rect.y + 25 // 2,
+                bullet = Bullet(player.get_coord()[0], player.get_coord()[1],
                                 5, (100, 255, 0), facing)
                 shots.add(bullet)
                 bullets.append(bullet)
@@ -472,13 +540,11 @@ def main(level):
                     bullets.pop(bullets.index(bullet))
                     shots.remove(bullet)
 
-            shots.update(bullets)
             shots.draw(screen)
 
             player.update(left, right, up)
             camera.update(player)
 
-            player.draw(screen)
             for sprite in all_sprites:
                 camera.apply(sprite)
             # obstacles.draw(screen)
@@ -487,7 +553,7 @@ def main(level):
             screen.set_clip(None)
 
             pygame.display.flip()
-            clock.tick(60)
+            clock.tick(30)
         else:  # TODO починить отрисовку
             button_coord = 300
             buttons = []
