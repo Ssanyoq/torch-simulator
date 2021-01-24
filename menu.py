@@ -198,6 +198,10 @@ def win_window(screen):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if quit_button.collidepoint(pygame.mouse.get_pos()):
+                    start_screen()
+                    return None
         pygame.display.flip()
 
 
