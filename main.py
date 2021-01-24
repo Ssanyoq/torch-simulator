@@ -542,7 +542,7 @@ def main(level):
     running = True
     while running:
         if player.won:
-            menu.win_window(screen)
+            menu.ending_screen(screen)
             return None
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -580,7 +580,7 @@ def main(level):
                 paused = not paused
 
         if not paused:  # Если игра не на паузе отрисовываем главную сцену, иначе меню паузы
-            screen.fill((255, 255, 255))
+            screen.fill((0, 0, 0))
 
             enemies.update()
             enemies.draw(screen)
