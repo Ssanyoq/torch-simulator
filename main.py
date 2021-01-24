@@ -93,12 +93,10 @@ def convert_level(level, path='misc/levels'):
                 a = [i for i in level[count + 1]]
                 max_length_right = a[x // 30:].index(' ') * 30
                 max_length_left = a[:x // 30][::-1].index(' ') * 30
-                if not max_length_right == max_length_left == 0:
-                    # Если враг не на платформе, то мы его не создаем :(
-                    enemy = Enemy(30, 30, x, y, max_length_right, max_length_left,
-                                  texture='textures/platform.jpeg')
-                    enemies.add(enemy)
-                    all_sprites.add(enemy)
+                enemy = Enemy(30, 30, x, y, max_length_right, max_length_left,
+                              texture='textures/platform.jpeg')
+                enemies.add(enemy)
+                all_sprites.add(enemy)
             elif element == 'S':
                 player_x, player_y = x, y
                 air = Air(30, 30, x, y, color=AIR_COLOR)
@@ -263,7 +261,7 @@ class Player(Entity):
         for platform in platforms:
 
             tmp_rect.y = self.rect.y
-            tmp_rect.x = self.rect.x + delta_x
+            tmp_rect.x = self.rect.x + self.delta_x
 
             if platform.rect.colliderect(tmp_rect):
                 self.delta_x = 0
@@ -279,15 +277,11 @@ class Player(Entity):
                     self.vel_y = 0
                 else:
                     # Если летит вниз
-                    delta_y = platform.rect.top - self.rect.bottom
+                    self.delta_y = platform.rect.top - self.rect.bottom
                     self.vel_y = 0
                     self.is_onground = True
             else:
                 self.in_air = True
-
-        for enemy in enemies:
-            if pygame.sprite.collide_rect(self, enemy):
-                self.health -= 1  # TODO сделать удары рагов
 
         if self.is_onground:
             self.in_air = False
@@ -320,26 +314,26 @@ class Enemy(Entity):
         super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True, health=100)
         self.max_length_right = max_length_right
         self.max_length_left = max_length_left
-        self.x_vel = max_length_right
+        self.max_length_vel = max_length_right
 
-        if self.x_vel - self.size_x == 0:
+        if self.max_length_vel - self.size_x == 0:
             self.facing = -1
         else:
             self.facing = 1
 
     def update(self):
         self.rect.x += (self.moving_velocity - 3) * self.facing
-        self.x_vel -= (self.moving_velocity - 3) * self.facing
+        self.max_length_vel -= (self.moving_velocity - 3) * self.facing
 
-        if self.x_vel - self.size_x == 0 and self.facing == 1:
+        if self.max_length_vel - self.size_x == 0 and self.facing == 1:
             self.facing = -1
-        elif self.x_vel > self.max_length_right + self.max_length_left and self.facing == -1:
+
+        if self.max_length_vel > self.max_length_right + self.max_length_left and self.facing == -1:
             self.facing = 1
 
         for platform in platforms:
-            if pygame.sprite.collide_rect(self, platform):
+            if pygame.sprite.collide_rect(self, platform) and self != platform:
                 self.facing = -1 if self.facing == 1 else 1
-                self.is_on_ground = True
 
     def draw(self, screen):
         screen.blit(self.image, (self.rect.x, self.rect.y))
@@ -414,16 +408,14 @@ class Bullet(pygame.sprite.Sprite):
 
 class Camera:
     def __init__(self):
-        self.dx = 0
-        self.dy = 0
+        self.x = 0
+        self.y = 0
 
     def apply(self, obj):
-        obj.rect.x += self.dx
-        obj.rect.y += self.dy
+        obj.rect.x += self.x
+        obj.rect.y += self.y
 
     def update(self, target):
-        self.dx = -(target.rect.x + target.rect.w // 2 - SIZE_X // 2)
-        self.dy = -(target.rect.y + target.rect.h // 2 - SIZE_Y // 2)
         if target.rect.centerx + target.delta_x > SIZE_X - 120 - self.x or \
                 target.rect.centerx + target.delta_x < 0 - self.x + 120:
             self.x = -target.delta_x
@@ -526,17 +518,12 @@ def main(level):
     pygame.display.set_caption(WINDOW_CAPTION)
     screen = pygame.display.set_mode(SIZE)
 
-    platforms, player_x, player_y = convert_level(level)  # Level передается через level_screen и start_screen
-
-    player = Player(50, 50, player_x, player_y, texture='entities/arrow.png')  # TODO Поменять файл
-    all_sprites.add(player)  # Создаем персонажа
     platforms, decoratives, player_x, player_y = convert_level(level)
     player = Player(50, 50, player_x, player_y - 20,
                     texture='entities/arrow.png')  # TODO Поменять файл
     all_sprites.add(player)
 
     bullets = []
-    bullets_quantity = 10
     facing = 1  # Направление пуль, изначально пули летят вправо
 
     camera = Camera()  # Создаем камеру
@@ -588,19 +575,6 @@ def main(level):
                     bullets.append(bullet)
                 elif event.button == 3:
                     player.try_placing_torch()
-            if player.rect.x == 570:
-                facing = -1
-            elif player.rect.x == 580:
-                facing = 1
-            # Стреляем туда куда движется игрок
-
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3 and not paused\
-                    and bullets_quantity > 0:
-                bullet = Bullet(player.rect.x + 25 // 2, player.rect.y + 25 // 2,
-                                5, (100, 255, 0), facing)
-                shots.add(bullet)
-                bullets.append(bullet)
-                bullets_quantity -= 1
 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 paused = not paused
@@ -620,20 +594,12 @@ def main(level):
             for torch in torches:
                 torch.draw(screen)
 
-            if player.health < 0:
-                menu.end_screen(screen, False, level)
-
-            for hit in pygame.sprite.groupcollide(enemies, shots, True, True):
-                enemies.remove(hit)  # Убиваем врага если по нему попала пуля
-
             for bullet in bullets:
-                if SIZE_X > bullet.x > 0 and not pygame.sprite.spritecollideany(bullet, obstacles)\
-                        and not pygame.sprite.spritecollideany(bullet, enemies):
+                if SIZE_X > bullet.x > 0 and not pygame.sprite.spritecollideany(bullet, obstacles):
                     bullet.rect.x += bullet.speed
-                    # Если пуля не вышла за экран и не попала по платформе или врагу она литит дальше
                 else:
                     bullets.pop(bullets.index(bullet))
-                    shots.remove(bullet) # Удаляем пулю
+                    shots.remove(bullet)
 
             shots.update(bullets)
             shots.draw(screen)
@@ -648,10 +614,6 @@ def main(level):
 
             # screen.blit(darkness_area, darkness_rect) TODO раскомментить
             screen.set_clip(None)
-
-            color = 'White' if bullets_quantity > 0 else 'Red'
-            menu.draw_text(screen, [str(bullets_quantity)], 0, 0, color, size=75, text_coord_2=0)
-            menu.draw_text(screen, [str(player.health)], 0, 0, 'Green', size=75, text_coord_2=1105)
 
             pygame.display.flip()
             clock.tick(60)
@@ -701,4 +663,5 @@ def main(level):
 
 
 if __name__ == '__main__':
-    main('level_1')
+    main('level_1')  # TODO изменить
+

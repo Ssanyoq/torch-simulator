@@ -87,50 +87,6 @@ def get_current_levels(all_levels, page):
     return current_levels, current_namings
 
 
-def end_screen(screen, victory, level):
-    screen.fill((0, 0, 0))
-
-    button_coord = 400
-    buttons = []
-
-    for i in range(2):  # Создание кнопок
-        button = pygame.draw.rect(screen, (200, 200, 225), (350, button_coord, 530, 60))
-        button_coord += 100
-        buttons.append(button)
-
-    text_coord = 350
-    text_delta = 65
-
-    if victory:
-        draw_text(screen, ['You win'], 100, 0, color='Green', size=200, text_coord_2=350)
-        button_text = ['Continue', 'Quit']
-    else:
-        draw_text(screen, ['You lose'], 100, 0, color='Red', size=200, text_coord_2=325)
-        button_text = ['Restart', 'Quit']
-
-    draw_text(screen, button_text, text_coord, text_delta)
-
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                for button in buttons:
-                    if pygame.Rect.collidepoint(button, pygame.mouse.get_pos()):
-                        if button.y == 400 and victory:
-                            running = False
-                            pass  # Загружаем следующий уровень
-                        else:
-                            running = False
-                            main.main(level)
-
-                        if button.y == 500:
-                            running = False
-                            start_screen()
-        pygame.display.flip()
-
-
 def level_screen(menu_screen):
     menu_screen.fill((0, 0, 0))
 
@@ -183,17 +139,6 @@ def level_screen(menu_screen):
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                for button in buttons:
-                    # Проверка на совпадение координаты мыши с одной из кнопок
-                    if pygame.Rect.collidepoint(button, pygame.mouse.get_pos()):
-                        # По координате Y мы можем узнать на какую кнопку нажал пользователь
-                        # т.е у первой кнопки Y равен 100, у второй 200 и т.д
-                        if button.y == 600:
-                            running = False
-                            start_screen()
-                        else:
-                            running = False
-                            # main.main('level_' + str(button.y // 100))
                 if event.button == 1:
                     for i, button in enumerate(buttons):
                         # Проверка на совпадение координаты мыши с одной из кнопок
@@ -280,14 +225,6 @@ def start_screen():
     SIZE = WIDTH, HEIGHT = 1200, 720
     screen = pygame.display.set_mode(SIZE)
 
-    pygame.draw.rect(screen, (210, 200, 200), (350, 230, 530, 60))
-    pygame.draw.rect(screen, (200, 200, 200), (350, 320, 530, 60))
-    pygame.draw.rect(screen, (200, 170, 170), (350, 410, 530, 60))
-    pygame.draw.rect(screen, (150, 170, 170), (1110, 690, 75, 25))
-
-    intro_text = ["Start", "Levels", "Exit"]
-    text_coord = 190
-    text_delta = 55
     start_button = pygame.draw.rect(screen, (210, 200, 200), (350, 230, 530, 60))
     levels_button = pygame.draw.rect(screen, (200, 200, 200), (350, 320, 530, 60))
     exit_button = pygame.draw.rect(screen, (200, 170, 170), (350, 410, 530, 60))
@@ -309,8 +246,6 @@ def start_screen():
         else:
             draw_text(screen, button[2], 550, 245 + 90 * i)
             # 245 = button[0][0].y + button[0][0].height // 4
-
-    screen.blit(pygame.font.Font(None, 25).render('Music', 1, pygame.Color('White')), (1125, 695, 75, 25))
 
     radio = pygame.mixer.Sound('misc/sounds/music_in_menu.mp3')
     radio.play()
@@ -345,15 +280,6 @@ def start_screen():
                                 radio.play()
                                 check_radio = True
                                 # TODO доделать радио
-                if pygame.mouse.get_pos()[0] >= 1110 and pygame.mouse.get_pos()[1] >= 690:
-                    if pygame.mouse.get_pos()[0] <= 1185 and pygame.mouse.get_pos()[1] <= 715:
-                        if check_radio:
-                            radio.stop()
-                            check_radio = False
-                        else:
-                            radio = pygame.mixer.Sound('misc/sounds/music_in_menu.mp3')
-                            radio.play()
-                            check_radio = True
         pygame.display.flip()
         clock.tick(100)
     radio.stop()
