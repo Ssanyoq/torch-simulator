@@ -28,7 +28,7 @@ FINISH_COLOR = (81, 59, 128)
 
 obstacles = pygame.sprite.Group()
 entities = pygame.sprite.Group()
-enemies = pygame.sprite.Group()
+enemies = []
 all_sprites = pygame.sprite.Group()
 shots = pygame.sprite.Group()
 light_sources = []
@@ -57,7 +57,7 @@ def convert_level(level, path='misc/levels'):
     player_x, player_y = 0, 0
 
     x = y = 0
-    count = 0
+    i = 0
     max_string_length = int(len(max(level, key=lambda x: len(x))))
     # Чтобы края закрывать красивым чем-нибудь
 
@@ -71,13 +71,13 @@ def convert_level(level, path='misc/levels'):
         x = 0
         y += 30
 
-    for row in level:
-        for i in range(3):
+    for i, row in enumerate(level):
+        for j in range(3):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
             platforms.append(platform)
             x += 30
-        for element in row:
+        for k, element in enumerate(row):
             if element == "-":
                 platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
                 # obstacles.add(platform)
@@ -89,19 +89,46 @@ def convert_level(level, path='misc/levels'):
                 obstacles.add(spike)
                 all_sprites.add(spike)
                 platforms.append(spike)
-            elif element == 'E':
-                a = [i for i in level[count + 1]]
-                max_length_right = a[x // 30:].index(' ') * 30
-                max_length_left = a[:x // 30][::-1].index(' ') * 30
-                enemy = Enemy(30, 30, x, y, max_length_right, max_length_left,
+            elif element.lower() == 'e' or element.lower() == 'е':
+                bottom_line = list(level[i + 1])
+                if len(bottom_line) - 1 < k:
+                    air = Air(30, 30, x, y, color=AIR_COLOR)
+                    decoratives.append(air)
+                    continue
+                elif bottom_line[k] != '-':
+                    air = Air(30, 30, x, y, color=AIR_COLOR)
+                    decoratives.append(air)
+                    continue
+                stopped = False
+                left_from_enemy = bottom_line[:k + 1][::-1]
+                for j, symbol in enumerate(left_from_enemy):
+                    if symbol != '-':
+                        max_path_left = (j - 1) * 30
+                        stopped = True
+                        break
+                if not stopped:
+                    max_path_left = k * 30
+                stopped = False
+                right_from_enemy = bottom_line[k:]
+                for j, symbol in enumerate(right_from_enemy):
+                    if symbol != '-':
+                        max_path_right = (j - 1) * 30
+                        stopped = True
+                        break
+                if not stopped:
+                    max_path_right = (len(row) - k) * 30
+                enemy = Enemy(30, 30, x, y, max_path_right, max_path_left,
                               texture='textures/platform.jpeg')
-                enemies.add(enemy)
+                enemies.append(enemy)
                 all_sprites.add(enemy)
-            elif element == 'S':
+
+                air = Air(30, 30, x, y, color=AIR_COLOR)
+                decoratives.append(air)
+            elif element.lower() == 's':
                 player_x, player_y = x, y
                 air = Air(30, 30, x, y, color=AIR_COLOR)
                 decoratives.append(air)
-            elif element == 'F':
+            elif element.lower() == 'f':
                 finish = Air(30, 30, x, y, finish=True, color=FINISH_COLOR)
                 decoratives.append(finish)
             else:
@@ -109,12 +136,11 @@ def convert_level(level, path='misc/levels'):
                 decoratives.append(air)
             x += 30
 
-        for i in range(max_string_length + 3 - (len(row) + 3)):
+        for j in range(max_string_length + 3 - (len(row) + 3)):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
             platforms.append(platform)
             x += 30
-        count += 1
         y += 30
         x = 0
 
@@ -312,31 +338,28 @@ class Enemy(Entity):
     def __init__(self, size_x, size_y, x, y, max_length_right, max_length_left,
                  texture=None, is_collide=True, health=None):
         super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True, health=100)
-        self.max_length_right = max_length_right
-        self.max_length_left = max_length_left
-        self.max_length_vel = max_length_right
-
-        if self.max_length_vel - self.size_x == 0:
-            self.facing = -1
-        else:
-            self.facing = 1
+        self.start_x = x
+        self.facing = 1
+        self.moving_velocity -= 3
+        self.to_left_border = max_length_left
+        self.to_right_border = max_length_right
 
     def update(self):
-        self.rect.x += (self.moving_velocity - 3) * self.facing
-        self.max_length_vel -= (self.moving_velocity - 3) * self.facing
-
-        if self.max_length_vel - self.size_x == 0 and self.facing == 1:
-            self.facing = -1
-
-        if self.max_length_vel > self.max_length_right + self.max_length_left and self.facing == -1:
+        if self.to_left_border <= 0 and self.facing == -1:
             self.facing = 1
+        elif self.to_right_border <= 0 and self.facing == 1:
+            self.facing = -1
+        else:
+            self.to_left_border += self.moving_velocity * self.facing
+            self.to_right_border -= self.moving_velocity * self.facing
+            self.rect.x += self.moving_velocity * self.facing
 
         for platform in platforms:
             if pygame.sprite.collide_rect(self, platform) and self != platform:
-                self.facing = -1 if self.facing == 1 else 1
+                self.facing *= -1
 
     def draw(self, screen):
-        screen.blit(self.image, (self.rect.x, self.rect.y))
+        pygame.draw.rect(screen, (200, 200, 200), self.rect)
 
 
 class Platform(pygame.sprite.Sprite):
@@ -582,9 +605,6 @@ def main(level):
         if not paused:  # Если игра не на паузе отрисовываем главную сцену, иначе меню паузы
             screen.fill((0, 0, 0))
 
-            enemies.update()
-            enemies.draw(screen)
-
             for platform in platforms:
                 platform.draw(screen)
 
@@ -603,6 +623,10 @@ def main(level):
 
             shots.update(bullets)
             shots.draw(screen)
+
+            for enemy in enemies:
+                enemy.update()
+                enemy.draw(screen)
 
             player.update(left, right, up)
             camera.update(player)
@@ -664,4 +688,3 @@ def main(level):
 
 if __name__ == '__main__':
     main('level_1')  # TODO изменить
-
