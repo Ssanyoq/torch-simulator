@@ -4,6 +4,7 @@ import pygame
 import sys
 import os
 import menu
+import files_manager
 
 GRAVITY_FORCE = 20
 SIZE = SIZE_X, SIZE_Y = 1200, 720
@@ -24,12 +25,15 @@ BRIGHTNESS_INFO = {
 PLATFORM_COLOR = (86, 72, 57)
 # Цвет платформы при максимальном освещении
 AIR_COLOR = (71, 57, 11)
+FINISH_COLOR = (81, 59, 128)
 
 obstacles = pygame.sprite.Group()
 entities = pygame.sprite.Group()
-enemies = pygame.sprite.Group()
+enemies = []
 all_sprites = pygame.sprite.Group()
 shots = pygame.sprite.Group()
+light_sources = []
+# Список с rect источников света
 
 darkness_radius = 180
 
@@ -37,6 +41,8 @@ darkness_area = pygame.Surface((SIZE_X, SIZE_Y), pygame.SRCALPHA)
 darkness_area.fill((0, 0, 0))
 pygame.draw.circle(darkness_area, (0, 0, 0, 0), (SIZE_X // 2, SIZE_Y // 2), darkness_radius)
 platforms = []
+air_blocks = []
+torches = []
 player = None  # Чтобы пичярм не жаловался
 
 
@@ -52,7 +58,7 @@ def convert_level(level, path='misc/levels'):
     player_x, player_y = 0, 0
 
     x = y = 0
-    count = 0
+    i = 0
     max_string_length = int(len(max(level, key=lambda x: len(x))))
     # Чтобы края закрывать красивым чем-нибудь
 
@@ -66,13 +72,13 @@ def convert_level(level, path='misc/levels'):
         x = 0
         y += 30
 
-    for row in level:
-        for i in range(3):
+    for i, row in enumerate(level):
+        for j in range(3):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
             platforms.append(platform)
             x += 30
-        for element in row:
+        for k, element in enumerate(row):
             if element == "-":
                 platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
                 # obstacles.add(platform)
@@ -80,33 +86,62 @@ def convert_level(level, path='misc/levels'):
                 obstacles.add(platform)
                 all_sprites.add(platform)
             elif element == "*":
-                spike = Spike(30, 30, x, y, texture='textures/spike.png')
+                spike = Spike(30, 30, x, y)  # TODO
                 obstacles.add(spike)
                 all_sprites.add(spike)
                 platforms.append(spike)
-            elif element == 'E':
-                a = [i for i in level[count + 1]]
-                max_length_right = a[x // 30:].index(' ') * 30
-                max_length_left = a[:x // 30][::-1].index(' ') * 30
-                enemy = Enemy(30, 30, x, y, max_length_right, max_length_left,
+            elif element.lower() == 'e' or element.lower() == 'е':
+                bottom_line = list(level[i + 1])
+                if len(bottom_line) - 1 < k:
+                    air = Air(30, 30, x, y, color=AIR_COLOR)
+                    decoratives.append(air)
+                    continue
+                elif bottom_line[k] != '-':
+                    air = Air(30, 30, x, y, color=AIR_COLOR)
+                    decoratives.append(air)
+                    continue
+                stopped = False
+                left_from_enemy = bottom_line[:k + 1][::-1]
+                for j, symbol in enumerate(left_from_enemy):
+                    if symbol != '-':
+                        max_path_left = (j - 1) * 30
+                        stopped = True
+                        break
+                if not stopped:
+                    max_path_left = k * 30
+                stopped = False
+                right_from_enemy = bottom_line[k:]
+                for j, symbol in enumerate(right_from_enemy):
+                    if symbol != '-':
+                        max_path_right = (j - 1) * 30
+                        stopped = True
+                        break
+                if not stopped:
+                    max_path_right = (len(row) - k) * 30
+                enemy = Enemy(30, 30, x, y, max_path_right, max_path_left,
                               texture='textures/platform.jpeg')
-                enemies.add(enemy)
+                enemies.append(enemy)
                 all_sprites.add(enemy)
-            elif element == 'S':
+
+                air = Air(30, 30, x, y, color=AIR_COLOR)
+                decoratives.append(air)
+            elif element.lower() == 's':
                 player_x, player_y = x, y
                 air = Air(30, 30, x, y, color=AIR_COLOR)
                 decoratives.append(air)
+            elif element.lower() == 'f':
+                finish = Air(30, 30, x, y, finish=True, color=FINISH_COLOR)
+                decoratives.append(finish)
             else:
                 air = Air(30, 30, x, y, color=AIR_COLOR)
                 decoratives.append(air)
             x += 30
 
-        for i in range(max_string_length + 3 - (len(row) + 3)):
+        for j in range(max_string_length + 3 - (len(row) + 3)):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
             platforms.append(platform)
             x += 30
-        count += 1
         y += 30
         x = 0
 
@@ -140,32 +175,58 @@ def load_image(name, color_key=None):
     return image
 
 
-def change_color(color, center_x, center_y):
-    # for light in lightsources: надо сделать, когда будут факелы
-    #    pass
-    player_x = player.rect.centerx
-    player_y = player.rect.centery
-    # Чтобы расстояние было не от левого верхнего
+def clear_stuff(screen):
+    global obstacles, player, entities, enemies, all_sprites, shots, platforms
+    player = None
+    obstacles = pygame.sprite.Group()
+    entities = pygame.sprite.Group()
+    enemies = pygame.sprite.Group()
+    all_sprites = pygame.sprite.Group()
+    shots = pygame.sprite.Group()
+    platforms = []
 
-    distance_from_player = ((center_x - player_x) ** 2 + (
-            center_y - player_y) ** 2) ** 0.5
+
+def change_color(color, center_x, center_y, light_x,
+                 light_y, brightness_level=0):
+    """
+    Изменяет цвет в зависимости
+    от расстояния точки (center_x, center_y) до
+    источников света
+    :param color: начальный цвет
+    :param center_x: x предмета
+    :param center_y: y предмета
+    :param light_x: x источника света
+    :param light_y: y источника света
+    :param brightness_level: настоящий
+    уровень освещенности предмета
+    :return: новый цвет и уровень освещенности
+    """
+    distance = ((center_x - light_x) ** 2 + (
+            center_y - light_y) ** 2) ** 0.5
     # Просто нахождение расстояния между двумя точками
-    distance_from_player = math.ceil(distance_from_player)  # чтобы int чтобы красиво
+    distance = math.ceil(distance)  # Чтобы int чтобы красиво
 
     is_changed = False
     new_color = None
     for i in BRIGHTNESS_INFO.keys():
-        if distance_from_player <= BRIGHTNESS_INFO[i][0]:
-            delta = BRIGHTNESS_INFO[i][1]
+        if distance <= BRIGHTNESS_INFO[i][0]:
+            if i > brightness_level:
+                brightness_level = i
+            delta = BRIGHTNESS_INFO[brightness_level][1]
             new_color = [color[0] - delta, color[1] - delta, color[2] - delta]
-            new_color = [i if i >= 0 else 0 for i in new_color]
+            new_color = [j if j >= 0 else 0 for j in new_color]
             is_changed = True
             break
 
     if not is_changed:
-        new_color = (0, 0, 0)
+        if brightness_level != 0:
+            delta = BRIGHTNESS_INFO[brightness_level][1]
+            new_color = [color[0] - delta, color[1] - delta, color[2] - delta]
+            new_color = [j if j >= 0 else 0 for j in new_color]
+        else:
+            new_color = [0, 0, 0]
 
-    return new_color
+    return new_color, brightness_level
 
 
 class AnimatedSprite(pygame.sprite.Sprite):
@@ -218,7 +279,7 @@ class Entity(pygame.sprite.Sprite):
 
 
 class Player(Entity):
-    def __init__(self, size_x, size_y, x, y, texture=None, is_collide=True, health=None):
+    def __init__(self, size_x, size_y, x, y, texture=None, is_collide=True, health=None, torches=0):
         super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True, health=100)
         self.jump_force = 20
         self.vel_y = GRAVITY_FORCE
@@ -226,7 +287,10 @@ class Player(Entity):
         # Способ сделать красивые падения
 
         self.in_air = False
+        self.won = False
+
         self.delta_x, self.delta_y = 0, 0
+        self.torches = torches
 
         self.frame = 0
 
@@ -299,6 +363,7 @@ class Player(Entity):
         # настоящий игрок столкнется с препятствием
 
         for platform in platforms:
+
             tmp_rect.y = self.rect.y
             tmp_rect.x = self.rect.x + self.delta_x
 
@@ -331,38 +396,45 @@ class Player(Entity):
         pygame.draw.rect(screen, (0, 0, 200), self.rect, 3)
 
     def get_coord(self):
-        return self.rect.centerx, self.rect.centery
+        return self.rect.x, self.rect.y
+
+    def try_placing_torch(self):
+        if not self.in_air:
+            torch = Torch(*self.rect.bottomleft)
+            print('Working')
+        else:
+            print('not')
+
+    def kill(self):
+        pass
 
 
 class Enemy(Entity):
     def __init__(self, size_x, size_y, x, y, max_length_right, max_length_left,
                  texture=None, is_collide=True, health=None):
         super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True, health=100)
-        self.max_length_right = max_length_right
-        self.max_length_left = max_length_left
-        self.max_length_vel = max_length_right
-
-        if self.max_length_vel - self.size_x == 0:
-            self.facing = -1
-        else:
-            self.facing = 1
+        self.start_x = x
+        self.facing = 1
+        self.moving_velocity -= 3
+        self.to_left_border = max_length_left
+        self.to_right_border = max_length_right
 
     def update(self):
-        self.rect.x += (self.moving_velocity - 3) * self.facing
-        self.max_length_vel -= (self.moving_velocity - 3) * self.facing
-
-        if self.max_length_vel - self.size_x == 0 and self.facing == 1:
-            self.facing = -1
-
-        if self.max_length_vel > self.max_length_right + self.max_length_left and self.facing == -1:
+        if self.to_left_border <= 0 and self.facing == -1:
             self.facing = 1
+        elif self.to_right_border <= 0 and self.facing == 1:
+            self.facing = -1
+        else:
+            self.to_left_border += self.moving_velocity * self.facing
+            self.to_right_border -= self.moving_velocity * self.facing
+            self.rect.x += self.moving_velocity * self.facing
 
         for platform in platforms:
             if pygame.sprite.collide_rect(self, platform) and self != platform:
-                self.facing = -1 if self.facing == 1 else 1
+                self.facing *= -1
 
     def draw(self, screen):
-        screen.blit(self.image, (self.rect.x, self.rect.y))
+        pygame.draw.rect(screen, (200, 200, 200), self.rect)
 
 
 class Platform(pygame.sprite.Sprite):
@@ -375,6 +447,9 @@ class Platform(pygame.sprite.Sprite):
         self.color = color
         self.pebble_color = pebble_color
         self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
+        self.static_brightness = 0
+        # Переменная, где записан уровень освещенности от статичных
+        # источников света (факелов)
         self.pebbles = []
         self.generate_pebbles(2)
 
@@ -391,14 +466,21 @@ class Platform(pygame.sprite.Sprite):
             self.pebbles.append(pebble_rect)
 
     def draw(self, screen):
-        tmp_color = change_color(self.color, self.rect.centerx, self.rect.centery)
-
+        tmp_color, brightness = change_color(self.color, self.rect.centerx, self.rect.centery,
+                                             player.rect.centerx, player.rect.centery,
+                                             self.static_brightness)
         pygame.draw.rect(screen, tmp_color, self.rect)
+        if brightness != 0:
+            delta = BRIGHTNESS_INFO[brightness][1]
+            pebble_color = [self.pebble_color[0] - delta, self.pebble_color[1] - delta,
+                            self.pebble_color[2] - delta]
+            pebble_color = [i if i >= 0 else 0 for i in pebble_color]
+        else:
+            pebble_color = [0, 0, 0]
         for pebble in self.pebbles:
-            tmp_pebble_color = change_color(self.pebble_color, pebble.centerx, pebble.centery)
-            tmp_rect = pygame.Rect(pebble.x + self.rect.x, pebble.y + self.rect.y, pebble.width,
-                                   pebble.height)
-            pygame.draw.rect(screen, tmp_pebble_color, tmp_rect)
+            pebble_rect = pygame.Rect(pebble.x + self.rect.x, pebble.y + self.rect.y,
+                                      pebble.width, pebble.height)
+            pygame.draw.rect(screen, pebble_color, pebble_rect)
 
 
 class Spike(Platform):
@@ -449,16 +531,82 @@ class Camera:
 class Air(pygame.sprite.Sprite):
     """Сделано для красивого освещения"""
 
-    def __init__(self, size_x, size_y, x, y, color=(255, 255, 255)):
+    def __init__(self, size_x, size_y, x, y, finish=False, color=(255, 255, 255)):
         super().__init__(all_sprites)
         self.size_x, self.size_y = size_x, size_y
         self.x, self.y = x, y
+        self.static_brightness = 0
         self.color = color
+        self.finish = finish
         self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
+        air_blocks.append(self)
 
     def draw(self, screen):
-        tmp_color = change_color(self.color, self.rect.centerx, self.rect.centery)
+        if self.rect.colliderect(player.rect) and self.finish:
+            player.won = True
+        tmp_color, brightness = change_color(self.color, self.rect.centerx, self.rect.centery,
+                                             player.rect.centerx, player.rect.centery,
+                                             self.static_brightness)
         pygame.draw.rect(screen, tmp_color, self.rect)
+
+
+class Torch(pygame.sprite.Sprite):
+    def __init__(self, bottom_x, bottom_y, bottom_size_x=3, bottom_size_y=10,
+                 bottom_color=(50, 50, 50),
+                 upper_color=(255, 156, 50)):
+        """
+        Факел разбит на 2 части: верхнюю и нижнюю
+        Верхняя часть - часть, из которой исходит свет,
+        нижняя часть - просто темная подставка под
+        светящуюся часть
+        X и y верхней части равны bottom_size_x
+        :param bottom_x: x нижнего левого угла факела
+        :param bottom_y: y нижнего левого угла факела
+        :param bottom_size_x: размер нижней части факела (сделано)'
+        :param bottom_size_y:
+        """
+        super().__init__(all_sprites)
+        self.bottom_color = bottom_color
+        self.upper_color = upper_color
+
+        self.rect = pygame.Rect(bottom_x, bottom_y, bottom_size_x, bottom_size_y)
+        # self.rect сделан таким, чтобы было удобно вычислять bottom и upper rect
+
+        self.bottom_rect = pygame.Rect(self.rect.x - self.rect.width,
+                                       self.rect.y - self.rect.height,
+                                       self.rect.width, self.rect.height)
+        self.upper_rect = pygame.Rect(self.bottom_rect.x,
+                                      self.bottom_rect.y - self.bottom_rect.width,
+                                      self.bottom_rect.width, self.bottom_rect.width
+                                      )
+        self.change_static_light()
+        light_sources.append(self.upper_rect)
+        torches.append(self)
+
+    def draw(self, screen):
+        self.bottom_rect = pygame.Rect(self.rect.x - self.rect.width,
+                                       self.rect.y - self.rect.height,
+                                       self.rect.width, self.rect.height)
+        self.upper_rect = pygame.Rect(self.bottom_rect.x,
+                                      self.bottom_rect.y - self.bottom_rect.width,
+                                      self.bottom_rect.width, self.bottom_rect.width
+                                      )
+        pygame.draw.rect(screen, self.bottom_color, self.bottom_rect)
+        pygame.draw.rect(screen, self.upper_color, self.upper_rect)
+
+    def change_static_light(self):
+        for platform in platforms:
+            color, brightness_lvl = change_color((0, 0, 0), platform.rect.centerx,
+                                                 platform.rect.centery, self.upper_rect.centerx,
+                                                 self.upper_rect.centery,
+                                                 platform.static_brightness)
+            platform.static_brightness = brightness_lvl
+        for air in air_blocks:
+            color, brightness_lvl = change_color((0, 0, 0), air.rect.centerx,
+                                                 air.rect.centery, self.upper_rect.centerx,
+                                                 self.upper_rect.centery,
+                                                 air.static_brightness)
+            air.static_brightness = brightness_lvl
 
 
 def main(level):
@@ -478,7 +626,7 @@ def main(level):
     camera = Camera()  # Создаем камеру
 
     # darkness_rect = pygame.Rect((0, 0), (darkness_radius * 2, darkness_radius * 2),)
-    # screen.set_clip(darkness_rect)
+    # screen.set_clip(darkness_rect) TODO включить
     # Поверх экрана происходит отрисовка прямоугольника с вырезанным по середине кругом (Темнота)
 
     left = False
@@ -490,6 +638,9 @@ def main(level):
     paused = False
     running = True
     while running:
+        if player.won:
+            menu.ending_screen(screen)
+            return None
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -513,26 +664,29 @@ def main(level):
                 main("level_1")
                 return None
 
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not paused:
-                bullet = Bullet(player.get_coord()[0], player.get_coord()[1],
-                                5, (100, 255, 0), facing)
-                shots.add(bullet)
-                bullets.append(bullet)
+            if event.type == pygame.MOUSEBUTTONDOWN and not paused:
+                if event.button == 1:
+                    bullet = Bullet(player.rect.x + 25 // 2, player.rect.y + 25 // 2,
+                                    5, (100, 255, 0), facing)
+                    shots.add(bullet)
+                    bullets.append(bullet)
+                elif event.button == 3:
+                    player.try_placing_torch()
 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 paused = not paused
 
         if not paused:  # Если игра не на паузе отрисовываем главную сцену, иначе меню паузы
-            screen.fill((255, 255, 255))
-
-            enemies.update()
-            enemies.draw(screen)
+            screen.fill((0, 0, 0))
 
             for platform in platforms:
                 platform.draw(screen)
 
             for decorative in decoratives:
                 decorative.draw(screen)
+
+            for torch in torches:
+                torch.draw(screen)
 
             for bullet in bullets:
                 if SIZE_X > bullet.x > 0 and not pygame.sprite.spritecollideany(bullet, obstacles):
@@ -541,51 +695,70 @@ def main(level):
                     bullets.pop(bullets.index(bullet))
                     shots.remove(bullet)
 
+            shots.update(bullets)
             shots.draw(screen)
+
+            for enemy in enemies:
+                enemy.update()
+                enemy.draw(screen)
 
             player.update(left, right, up)
             camera.update(player)
 
+            player.draw(screen)
             for sprite in all_sprites:
                 camera.apply(sprite)
             # obstacles.draw(screen)
 
-            # screen.blit(darkness_area, darkness_rect)
+            # screen.blit(darkness_area, darkness_rect) TODO раскомментить
             screen.set_clip(None)
 
             pygame.display.flip()
             clock.tick(FPS)
         else:  # TODO починить отрисовку
-            button_coord = 300
+            button_pos_y = 300
+            up, left, right = False, False, False
             buttons = []
+            # Список вида [[rect кнопки, функция, которой соответствует эта кнопка]]
+            # Вернется в меню, если было нажатие на кнопку с индексом 5
+            # Можно было сделать просто если индекс == чему-то, то что-то вызвать,
+            # но тогда неуниверсально
 
             for i in range(2):
-                button = pygame.draw.rect(screen, (210, 210, 210), (350, button_coord, 530, 60))
-                button_coord += 100
-                buttons.append(button)
+                button = pygame.draw.rect(screen, (210, 210, 210), (350, button_pos_y, 530, 60))
+                button_pos_y += 100
+                buttons.append([button, None])
 
-            intro_text = ["Continue", "Quit"]
-            text_coord = 255
-            text_delta = 60
+            buttons_texts = ["    Continue", "Back to menu"]
+            text_pos_y = 315
+            text_delta = 100
 
-            menu.draw_text(screen, intro_text, text_coord, text_delta)
+            menu.draw_texts(screen, buttons_texts, 500, text_pos_y, text_delta)
 
+            for i in range(len(buttons)):
+                text = buttons_texts[i].lower().strip()
+                # Чтобы красиво
+                buttons[i] = [buttons[i][0], text]
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit()  # Поправить ошибку
+                    running = False
+                    break
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    for button in buttons:
-                        if pygame.Rect.collidepoint(button, pygame.mouse.get_pos()):
-                            if button.y == 300:
-                                paused = False
-                            else:
-                                screen.fill((0, 0, 0))
-                                paused = False
-                                running = False
-                                menu.start_screen()
+                    if event.button == 1:
+                        for button in buttons:
+                            if pygame.Rect.collidepoint(button[0], pygame.mouse.get_pos()):
+                                if button[1] == 'continue':
+                                    paused = False
+                                elif button[1] == 'back to menu':
+                                    screen.fill((0, 0, 0))
+                                    clear_stuff(screen)
+                                    menu.start_screen()
+                                    return None
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    paused = not paused
                 pygame.display.flip()
     pygame.quit()
 
 
 if __name__ == '__main__':
-    main('level_1')
+    main('level_1')  # TODO изменить
