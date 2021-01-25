@@ -8,6 +8,7 @@ import menu
 GRAVITY_FORCE = 20
 SIZE = SIZE_X, SIZE_Y = 1200, 720
 WINDOW_CAPTION = 'Murky gloom'
+FPS = 120
 
 BRIGHTNESS_INFO = {
     10: [30, 0], 9: [60, 10], 8: [90, 20],
@@ -185,8 +186,7 @@ class AnimatedSprite(pygame.sprite.Sprite):
                     frame_location, self.rect.size)))
 
     def update(self, x, y, frame):
-        if frame > 5:
-            frame = 0
+        frame = frame % len(self.frames)
         self.image = self.frames[frame]
         screen.blit(self.image, (x, y))
 
@@ -230,20 +230,25 @@ class Player(Entity):
 
         self.frame = 0
 
-        self.stay_right = load_image('entities/player/stay_right.png')
-        self.jump_r = AnimatedSprite(load_image("entities/player/jump_right.png"), 6, 1, 50, 50)
-        self.run_r = AnimatedSprite(load_image("entities/player/run_right.png"), 6, 1, 50, 50)
+        self.idle_right = AnimatedSprite(load_image('entities/player/idle.png'), 4, 1, 50, 50)
+        self.jump_r = AnimatedSprite(load_image("entities/player/jump.png"), 6, 1, 50, 50)
+        self.run_r = AnimatedSprite(load_image("entities/player/run.png"), 6, 1, 50, 50)
 
-        self.stay_left = load_image('entities/player/stay_left.png')
-        self.jump_l = AnimatedSprite(load_image("entities/player/jump_left.png"), 6, 1, 50, 50)
-        self.run_l = AnimatedSprite(load_image("entities/player/run_left.png"), 6, 1, 50, 50)
+        self.idle_left = AnimatedSprite(
+            pygame.transform.flip(load_image('entities/player/idle.png'), True, False), 4, 1,
+            50, 50)
+        self.jump_l = AnimatedSprite(
+            pygame.transform.flip(load_image("entities/player/jump.png"), True, False), 6, 1,
+            50, 50)
+        self.run_l = AnimatedSprite(
+            pygame.transform.flip(load_image("entities/player/run.png"), True, False), 6, 1,
+            50, 50)
 
     def update(self, left, right, up):
         self.delta_x = 0  # Общее изменение
         self.delta_y = 0  # за всю работу функции
 
-        if self.frame > 29:
-            self.frame = 0
+        self.frame = self.frame % 30
 
         if up:
             if not self.in_air:
@@ -251,42 +256,37 @@ class Player(Entity):
                 self.in_air = True
             if self.facing == 1:
                 self.jump_r.update(self.rect.x, self.rect.y, self.frame // 5)
-                self.frame += 1
             else:
                 self.jump_l.update(self.rect.x, self.rect.y, self.frame // 5)
-                self.frame += 1
 
         if right:
             self.facing = 1
             self.delta_x = self.moving_velocity
             if self.vel_y < 0:
                 self.jump_r.update(self.rect.x, self.rect.y, self.frame // 5)
-                self.frame += 1
             elif self.vel_y == 0:
                 self.run_r.update(self.rect.x, self.rect.y, self.frame // 5)
-                self.frame += 1
 
         if left:
             self.facing -= 1
             self.delta_x = -self.moving_velocity
             if self.vel_y < 0:
                 self.jump_l.update(self.rect.x, self.rect.y, self.frame // 5)
-                self.frame += 1
             elif self.vel_y == 0:
                 self.run_l.update(self.rect.x, self.rect.y, self.frame // 5)
-                self.frame += 1
 
         if not (left or right or up) and self.vel_y == 0:  # Если стоим
             if self.facing == 1:
-                screen.blit(self.stay_right, (self.rect.x, self.rect.y))
+                self.idle_right.update(self.rect.x, self.rect.y, self.frame // 5)
             else:
-                screen.blit(self.stay_left, (self.rect.x, self.rect.y))
+                self.idle_left.update(self.rect.x, self.rect.y, self.frame // 4)
 
         if self.vel_y > 0:  # Если падаем
             if self.facing == 1:
                 self.jump_r.update(self.rect.x, self.rect.y, 4)
             else:
                 self.jump_l.update(self.rect.x, self.rect.y, 4)
+        self.frame += 1
 
         self.vel_y += 1
         if self.vel_y > GRAVITY_FORCE:
@@ -328,6 +328,7 @@ class Player(Entity):
 
         self.rect.x += self.delta_x
         self.rect.y += self.delta_y
+        pygame.draw.rect(screen, (0, 0, 200), self.rect, 3)
 
     def get_coord(self):
         return self.rect.centerx, self.rect.centery
@@ -553,7 +554,7 @@ def main(level):
             screen.set_clip(None)
 
             pygame.display.flip()
-            clock.tick(30)
+            clock.tick(FPS)
         else:  # TODO починить отрисовку
             button_coord = 300
             buttons = []
