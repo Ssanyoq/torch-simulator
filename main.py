@@ -595,8 +595,8 @@ class Bullet(pygame.sprite.Sprite):
 
 class Camera:
     def __init__(self):
-        self.x = 0
-        self.y = 0
+        self.x = -player.rect.x + SIZE_X // 2
+        self.y = -player.rect.y + SIZE_Y // 2
 
     def apply(self, obj):
         obj.rect.x += self.x
@@ -719,6 +719,8 @@ def main(level):
     facing = 1  # Направление пуль, изначально пули летят вправо
 
     camera = Camera()  # Создаем камеру
+    for sprite in all_sprites:
+        camera.apply(sprite)
 
     # darkness_rect = pygame.Rect((0, 0), (darkness_radius * 2, darkness_radius * 2),)
     # screen.set_clip(darkness_rect) TODO включить
