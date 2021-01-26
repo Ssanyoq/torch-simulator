@@ -209,7 +209,7 @@ def level_screen(menu_screen):
     # Переменная чтобы красивее было
     for button in buttons:
         if button[2]:
-            draw_text(menu_screen, "Пройдено", 790, button[0].y + 20, color="Green", font_size=25)
+            draw_text(menu_screen, "Completed", 790, button[0].y + 20, color="Green", font_size=25)
 
     running = True
     while running:

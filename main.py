@@ -1,5 +1,8 @@
+import datetime
 import math
 import random
+import time
+
 import pygame
 import sys
 import os
@@ -179,7 +182,7 @@ def load_image(name, color_key=None):
 
 def clear_stuff(screen):
     global obstacles, player, entities, enemies, all_sprites, shots, platforms, air_blocks, \
-        light_sources
+        light_sources, torches
     player = None
     obstacles = pygame.sprite.Group()
     entities = pygame.sprite.Group()
@@ -189,6 +192,7 @@ def clear_stuff(screen):
     platforms = []
     air_blocks = []
     light_sources = []
+    torches = []
 
 
 def change_color(color, center_x, center_y, light_x,
@@ -474,12 +478,14 @@ class Player(Entity):
         return self.rect.x, self.rect.y
 
     def try_placing_torch(self):
-        if not self.in_air:
+        if not self.in_air and self.torches > 0:
             if self.facing == 1:
                 torch = Torch(self.rect.bottomright[0] - 3, self.rect.bottomright[1])
             else:
                 torch = Torch(self.rect.bottomleft[0] + 3, self.rect.bottomleft[1])
             self.torch_placed = True
+            self.torches -= 1
+            print(self.torches)
 
 
 class Enemy(Entity):
@@ -568,7 +574,7 @@ class Platform(pygame.sprite.Sprite):
 class Spike(Platform):
     def __init__(self, size_x, size_y, x, y, color=(88, 15, 15)):
         Platform.__init__(self, size_x, size_y, x, y, color, pebble_amount=4,
-                          pebble_color=(98,65,33))
+                          pebble_color=(98, 65, 33))
         self.kill_if_touched = True
         # Если мы пересекаемся с этим блоком то мы умераем (Земля пухом)
 
@@ -598,7 +604,7 @@ class Camera:
         obj.rect.y += self.y
 
     def update(self, target):
-        if target.rect.centerx + target.delta_x > SIZE_X - 120 - self.x or \
+        if target.rect.centerx + target.delta_x > SIZE_X - 200 - self.x or \
                 target.rect.centerx + target.delta_x < 0 - self.x + 120:
             self.x = -target.delta_x
         else:
@@ -701,8 +707,14 @@ def main(level):
     screen = pygame.display.set_mode(SIZE)
 
     platforms, decoratives, player_x, player_y = convert_level(level)
-    player = Player(20, 50, player_x, player_y)
+    coins, torches_amount, level_data = files_manager.load_player_data()
+    player = Player(20, 50, player_x, player_y, torches=torches_amount)
     all_sprites.add(player)
+    start_time = time.time()
+    # start_time - время, которое будет считаться как
+    # время прохождения уровня, в секундах, float
+    # (переделывается в читабельную дату через
+    # datetime.datetime.utcfromtimestamp(start_time))
 
     bullets = []
     facing = 1  # Направление пуль, изначально пули летят вправо
@@ -723,10 +735,15 @@ def main(level):
     running = True
     while running:
         if player.won:
+            level_data[level] = start_time
+            coins += 5
+            print(f"level {level} completed at {datetime.datetime.utcfromtimestamp(start_time)}")
+            files_manager.save_player_data(coins,player.torches,level_data)
             menu.ending_screen(screen)
             return None
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                files_manager.save_player_data(coins,player.torches,level_data)
                 running = False
             if event.type == pygame.KEYDOWN and event.key in [pygame.K_LEFT, pygame.K_a]:
                 left = True
@@ -744,9 +761,6 @@ def main(level):
             if event.type == pygame.KEYUP and event.key in [pygame.K_UP, pygame.K_w,
                                                             pygame.K_SPACE]:
                 up = False
-            if event.type == pygame.KEYUP and event.key == pygame.K_r:
-                main("level_1")
-                return None
 
             if event.type == pygame.MOUSEBUTTONDOWN and not paused:
                 if event.button == 1:
@@ -786,13 +800,13 @@ def main(level):
                 died = enemy.update()
                 enemy.draw(screen)
                 if died:
+                    files_manager.save_player_data(coins, player.torches, level_data)
                     menu.ending_screen(screen, False)
                     return None
 
             died = player.update(left, right, up)
             camera.update(player)
 
-            player.draw(screen)
             for sprite in all_sprites:
                 camera.apply(sprite)
             # obstacles.draw(screen)
@@ -803,6 +817,7 @@ def main(level):
             pygame.display.flip()
             clock.tick(FPS)
             if died:
+                files_manager.save_player_data(coins, player.torches, level_data)
                 menu.ending_screen(screen, False)
                 return None
 
@@ -833,7 +848,9 @@ def main(level):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                    files_manager.save_player_data(coins, player.torches, level_data)
                     break
+
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
                         for button in buttons:
@@ -842,6 +859,8 @@ def main(level):
                                     paused = False
                                 elif button[1] == 'back to menu':
                                     screen.fill((0, 0, 0))
+                                    files_manager.save_player_data(coins, player.torches,
+                                                                   level_data)
                                     clear_stuff(screen)
                                     menu.start_screen()
                                     return None
