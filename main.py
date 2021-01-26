@@ -304,6 +304,7 @@ class Player(Entity):
 
         self.in_air = False
         self.won = False
+        self.is_dead = False
 
         self.delta_x, self.delta_y = 0, 0
         self.torches = torches
@@ -373,7 +374,7 @@ class Player(Entity):
             if platform.rect.colliderect(tmp_rect):
                 # Проверка на столкновение по y
                 if platform.kill_if_touched:
-                    return True
+                    self.is_dead = True
                 if self.vel_y < 0:
                     # Если летит вверх
                     self.delta_y = platform.rect.bottom - self.rect.top
@@ -472,8 +473,6 @@ class Player(Entity):
         if self.in_air:
             self.was_flying = True
 
-        pygame.draw.rect(screen, (0, 0, 200), self.rect, 3)  # hitbox
-
     def get_coord(self):
         return self.rect.x, self.rect.y
 
@@ -497,6 +496,7 @@ class Enemy(Entity):
         self.moving_velocity -= 3
         self.to_left_border = max_length_left
         self.to_right_border = max_length_right
+        self.killed_player = False
 
     def update(self):
         """
@@ -515,8 +515,7 @@ class Enemy(Entity):
             if pygame.sprite.collide_rect(self, platform) and self != platform:
                 self.facing *= -1
         if self.rect.colliderect(player.rect):
-            return True
-        return False
+            self.killed_player = True
 
     def draw(self, screen):
         pygame.draw.rect(screen, (44, 3, 9), self.rect)
@@ -738,12 +737,12 @@ def main(level):
             level_data[level] = start_time
             coins += 5
             print(f"level {level} completed at {datetime.datetime.utcfromtimestamp(start_time)}")
-            files_manager.save_player_data(coins,player.torches,level_data)
+            files_manager.save_player_data(coins, player.torches, level_data)
             menu.ending_screen(screen)
             return None
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                files_manager.save_player_data(coins,player.torches,level_data)
+                files_manager.save_player_data(coins, player.torches, level_data)
                 running = False
             if event.type == pygame.KEYDOWN and event.key in [pygame.K_LEFT, pygame.K_a]:
                 left = True
@@ -795,16 +794,15 @@ def main(level):
 
             shots.update(bullets)
             shots.draw(screen)
-
+            is_dead = False
             for enemy in enemies:
-                died = enemy.update()
+                enemy.update()
                 enemy.draw(screen)
-                if died:
-                    files_manager.save_player_data(coins, player.torches, level_data)
-                    menu.ending_screen(screen, False)
-                    return None
+                if enemy.killed_player:
+                    is_dead = True
+                    break
 
-            died = player.update(left, right, up)
+            player.update(left, right, up)
             camera.update(player)
 
             for sprite in all_sprites:
@@ -816,7 +814,7 @@ def main(level):
 
             pygame.display.flip()
             clock.tick(FPS)
-            if died:
+            if player.is_dead or is_dead:
                 files_manager.save_player_data(coins, player.torches, level_data)
                 menu.ending_screen(screen, False)
                 return None
