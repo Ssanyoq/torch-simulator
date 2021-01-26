@@ -810,7 +810,7 @@ def main(level):
             for sprite in all_sprites:
                 camera.apply(sprite)
             # obstacles.draw(screen)
-
+            menu.info_gui(screen, coins, player.torches)
             # screen.blit(darkness_area, darkness_rect) TODO раскомментить
             screen.set_clip(None)
 
