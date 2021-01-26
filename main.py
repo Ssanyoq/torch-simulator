@@ -233,12 +233,13 @@ class AnimatedSprite(pygame.sprite.Sprite):
     def __init__(self, sheet, columns, rows, x, y, is_left=False):
         super().__init__(all_sprites)
         self.frames = []
-        if is_left:
-            sheet = pygame.transform.flip(sheet, True, False)
         self.cut_sheet(sheet, columns, rows)
         self.image = self.frames[0]
         self.rect = self.rect.move(x, y)
         self.is_left = is_left
+        if is_left:
+            for i, frame in enumerate(self.frames):
+                self.frames[i] = pygame.transform.flip(frame, True, False)
 
     def cut_sheet(self, sheet, columns, rows):
         self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
@@ -300,6 +301,8 @@ class Player(Entity):
         self.was_flying = False
         # Переменная, показывающая, был ли персонаж в
         # воздухе кадр назад
+        self.torch_placed = False
+        # Был ли поставлен торч
 
         self.frame = 0
         self.animation_before = None
@@ -308,17 +311,16 @@ class Player(Entity):
         self.idle_right = AnimatedSprite(load_image('entities/player/idle.png'), 4, 1, 50, 50)
         self.jump_r = AnimatedSprite(load_image("entities/player/jump.png"), 6, 1, 50, 50)
         self.run_r = AnimatedSprite(load_image("entities/player/run.png"), 6, 1, 50, 50)
+        self.place_r = AnimatedSprite(load_image("entities/player/placing.png"), 6, 1, 50, 50)
 
         self.idle_left = AnimatedSprite(
-            load_image('entities/player/idle.png'), 4, 1,
-            50, 50, True)
+            load_image('entities/player/idle.png'), 4, 1, 50, 50, True)
         self.jump_l = AnimatedSprite(
-            load_image("entities/player/jump.png"), 6, 1,
-            50, 50, True)
+            load_image("entities/player/jump.png"), 6, 1, 50, 50, True)
 
         self.run_l = AnimatedSprite(
-            load_image("entities/player/run.png"), 6, 1,
-            50, 50, True)
+            load_image("entities/player/run.png"), 6, 1, 50, 50, True)
+        self.place_l = AnimatedSprite(load_image('entities/player/placing.png'), 6, 1, 50, 50, True)
 
     def update(self, left, right, up):
         self.delta_x = 0  # Общее изменение
@@ -376,7 +378,17 @@ class Player(Entity):
         # Анимации
         if self.is_onground:
             self.in_air = False
-            if self.was_flying:
+            if self.torch_placed:
+                if self.animation_before != 'placing':
+                    self.frame = 0
+                    self.animation_before = 'placing'
+                if self.facing == 1:
+                    self.place_r.update(x, y, self.frame // 3)
+                    # // 3 чтобы дольше длилась
+                else:
+                    self.place_l.update(x, y, self.frame // 3)
+
+            elif self.was_flying:
                 # Только приземлился, так что круто
                 if self.animation_before != 'landing':
                     self.frame = 0
@@ -398,6 +410,7 @@ class Player(Entity):
                 else:
                     # Идет влево
                     self.run_l.update(x, y, self.frame // 6)
+
             else:
                 # АФК (ну типа)
                 if self.animation_before != 'idle':
@@ -408,6 +421,7 @@ class Player(Entity):
                     self.idle_right.update(x, y, self.frame // 4)
                 else:
                     self.idle_left.update(x, y, self.frame // 4)
+
         else:
             if self.delta_y < 0:
                 # Прыгает
@@ -436,10 +450,16 @@ class Player(Entity):
         self.rect.x += self.delta_x
         self.rect.y += self.delta_y
         self.frame += 1
+
         if self.frame == 3 and self.animation_before == 'landing':
             self.was_flying = False
+
+        if self.animation_before == 'placing' and self.frame // 3 == 6:
+            self.torch_placed = False
+
         if self.in_air:
             self.was_flying = True
+
         pygame.draw.rect(screen, (0, 0, 200), self.rect, 3)  # hitbox
 
     def get_coord(self):
@@ -447,10 +467,12 @@ class Player(Entity):
 
     def try_placing_torch(self):
         if not self.in_air:
-            torch = Torch(*self.rect.bottomleft)
-            print('Working')
-        else:
-            print('not')
+            if self.facing == 1:
+                torch = Torch(self.rect.bottomright[0] - 3, self.rect.bottomright[1])
+            else:
+                torch = Torch(self.rect.bottomleft[0] + 3, self.rect.bottomleft[1])
+            self.torch_placed = True
+            print('torch')
 
     def kill(self):
         pass
