@@ -818,7 +818,7 @@ def main(level):
             clock.tick(FPS)
             if player.is_dead or is_dead:
                 files_manager.save_player_data(coins, player.torches, level_data)
-                menu.ending_screen(screen, False)
+                menu.ending_screen(screen, False, cur_level=level)
                 return None
 
         else:  # TODO починить отрисовку
