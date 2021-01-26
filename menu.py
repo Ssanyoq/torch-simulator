@@ -276,6 +276,39 @@ def level_screen(menu_screen):
         pygame.display.flip()
 
 
+def ending_screen(screen, won=True):
+    """
+    Менюшка, надписи на которой зависят от того,
+    победил игрок или нет
+    :param screen: экран
+    :param won: победил или нет
+    :return: None
+    """
+    pygame.draw.rect(screen, (152, 130, 199), (300, 180, 600, 360))
+    if won:
+        bold_text = 'You won!'
+        small_text = " " * 11 + '+ 5 coins'
+    else:
+        bold_text = 'You lost'
+        small_text = 'Better luck next time'
+    draw_text(screen, bold_text, 490, 250, font_size=75)
+    draw_text(screen, small_text, 430, 425)
+    quit_button = pygame.draw.rect(screen, (200, 0, 0), (825, 180, 75, 75))
+    draw_text(screen, 'X', 845, 195, font_size=75)
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                main.clear_stuff(screen)
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if quit_button.collidepoint(pygame.mouse.get_pos()):
+                    main.clear_stuff(screen)
+                    start_screen()
+                    return None
+        pygame.display.flip()
+
+
 def start_screen():
     pygame.init()
     pygame.display.set_caption("Murky Gloom")

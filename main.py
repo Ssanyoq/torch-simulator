@@ -9,6 +9,7 @@ import files_manager
 GRAVITY_FORCE = 20
 SIZE = SIZE_X, SIZE_Y = 1200, 720
 WINDOW_CAPTION = 'Murky gloom'
+FPS = 60
 
 BRIGHTNESS_INFO = {
     10: [30, 0], 9: [60, 10], 8: [90, 20],
@@ -24,10 +25,11 @@ BRIGHTNESS_INFO = {
 PLATFORM_COLOR = (86, 72, 57)
 # Цвет платформы при максимальном освещении
 AIR_COLOR = (71, 57, 11)
+FINISH_COLOR = (81, 59, 128)
 
 obstacles = pygame.sprite.Group()
 entities = pygame.sprite.Group()
-enemies = pygame.sprite.Group()
+enemies = []
 all_sprites = pygame.sprite.Group()
 shots = pygame.sprite.Group()
 light_sources = []
@@ -56,7 +58,7 @@ def convert_level(level, path='misc/levels'):
     player_x, player_y = 0, 0
 
     x = y = 0
-    count = 0
+    i = 0
     max_string_length = int(len(max(level, key=lambda x: len(x))))
     # Чтобы края закрывать красивым чем-нибудь
 
@@ -70,13 +72,13 @@ def convert_level(level, path='misc/levels'):
         x = 0
         y += 30
 
-    for row in level:
-        for i in range(3):
+    for i, row in enumerate(level):
+        for j in range(3):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
             platforms.append(platform)
             x += 30
-        for element in row:
+        for k, element in enumerate(row):
             if element == "-":
                 platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
                 # obstacles.add(platform)
@@ -88,29 +90,60 @@ def convert_level(level, path='misc/levels'):
                 obstacles.add(spike)
                 all_sprites.add(spike)
                 platforms.append(spike)
-            elif element == 'E':
-                a = [i for i in level[count + 1]]
-                max_length_right = a[x // 30:].index(' ') * 30
-                max_length_left = a[:x // 30][::-1].index(' ') * 30
-                enemy = Enemy(30, 30, x, y, max_length_right, max_length_left,
+            elif element.lower() == 'e' or element.lower() == 'е':
+                if len(level) - 1 == i:
+                    continue
+                bottom_line = list(level[i + 1])
+                if len(bottom_line) - 1 < k:
+                    air = Air(30, 30, x, y, color=AIR_COLOR)
+                    decoratives.append(air)
+                    continue
+                elif bottom_line[k] != '-':
+                    air = Air(30, 30, x, y, color=AIR_COLOR)
+                    decoratives.append(air)
+                    continue
+                stopped = False
+                left_from_enemy = bottom_line[:k + 1][::-1]
+                for j, symbol in enumerate(left_from_enemy):
+                    if symbol != '-':
+                        max_path_left = (j - 1) * 30
+                        stopped = True
+                        break
+                if not stopped:
+                    max_path_left = k * 30
+                stopped = False
+                right_from_enemy = bottom_line[k:]
+                for j, symbol in enumerate(right_from_enemy):
+                    if symbol != '-':
+                        max_path_right = (j - 1) * 30
+                        stopped = True
+                        break
+                if not stopped:
+                    max_path_right = (len(row) - k) * 30
+                enemy = Enemy(30, 30, x, y, max_path_right, max_path_left,
                               texture='textures/platform.jpeg')
-                enemies.add(enemy)
+                enemies.append(enemy)
                 all_sprites.add(enemy)
-            elif element == 'S':
+
+                air = Air(30, 30, x, y, color=AIR_COLOR)
+                decoratives.append(air)
+            elif element.lower() == 's':
                 player_x, player_y = x, y
                 air = Air(30, 30, x, y, color=AIR_COLOR)
                 decoratives.append(air)
+            elif element.lower() == 'f':
+                finish = Air(30, 30, x, y, finish=True, color=FINISH_COLOR)
+                decoratives.append(finish)
             else:
                 air = Air(30, 30, x, y, color=AIR_COLOR)
                 decoratives.append(air)
             x += 30
 
-        for i in range(max_string_length + 3 - (len(row) + 3)):
+        for j in range(max_string_length + 3 - (len(row) + 3)):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
             platforms.append(platform)
             x += 30
-        count += 1
         y += 30
         x = 0
 
@@ -150,7 +183,7 @@ def clear_stuff(screen):
     player = None
     obstacles = pygame.sprite.Group()
     entities = pygame.sprite.Group()
-    enemies = pygame.sprite.Group()
+    enemies = []
     all_sprites = pygame.sprite.Group()
     shots = pygame.sprite.Group()
     platforms = []
@@ -201,6 +234,36 @@ def change_color(color, center_x, center_y, light_x,
     return new_color, brightness_level
 
 
+class AnimatedSprite(pygame.sprite.Sprite):
+    def __init__(self, sheet, columns, rows, x, y, is_left=False):
+        super().__init__(all_sprites)
+        self.frames = []
+        self.cut_sheet(sheet, columns, rows)
+        self.image = self.frames[0]
+        self.rect = self.rect.move(x, y)
+        self.is_left = is_left
+        if is_left:
+            for i, frame in enumerate(self.frames):
+                self.frames[i] = pygame.transform.flip(frame, True, False)
+
+    def cut_sheet(self, sheet, columns, rows):
+        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                                sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (self.rect.w * i, self.rect.h * j)
+                self.frames.append(sheet.subsurface(pygame.Rect(
+                    frame_location, self.rect.size)))
+
+    def update(self, x, y, frame):
+        x -= 5
+        if self.is_left:
+            x -= 20
+        frame = frame % len(self.frames)
+        self.image = self.frames[frame]
+        screen.blit(self.image, (x, y))
+
+
 class Entity(pygame.sprite.Sprite):
     def __init__(self, size_x, size_y, x, y, texture=None, is_collide=True, health=None):
         # texture - название файла, как в load_image
@@ -213,10 +276,15 @@ class Entity(pygame.sprite.Sprite):
         self.is_onground = False
         self.moving_velocity = 5
 
-        self.image = load_image(texture)
-        self.image = self.image
-        self.rect = self.image.get_rect()
-        self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
+        if texture is None:
+            self.image = pygame.Surface((size_x, size_y))
+            self.image.fill(pygame.Color((0, 0, 0)))
+            self.rect = pygame.Rect(x, y, size_x, size_y)
+        else:
+            self.image = load_image(texture)
+            self.image = self.image
+            self.rect = self.image.get_rect()
+            self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
 
         if health is None:
             self.is_immortal = True
@@ -225,26 +293,57 @@ class Entity(pygame.sprite.Sprite):
 class Player(Entity):
     def __init__(self, size_x, size_y, x, y, texture=None, is_collide=True, health=None, torches=0):
         super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True, health=100)
-        self.jump_force = 20
+        self.jump_force = 15
         self.vel_y = GRAVITY_FORCE
+        self.facing = 1
         # Способ сделать красивые падения
 
         self.in_air = False
+        self.won = False
 
         self.delta_x, self.delta_y = 0, 0
         self.torches = torches
+        self.was_flying = False
+        # Переменная, показывающая, был ли персонаж в
+        # воздухе кадр назад
+        self.torch_placed = False
+        # Был ли поставлен торч
+
+        self.frame = 0
+        self.animation_before = None
+        # Переменная, где показывается, какая анимация была в
+        # прошлый вызов функции update
+        self.idle_right = AnimatedSprite(load_image('entities/player/idle.png'), 4, 1, 50, 50)
+        self.jump_r = AnimatedSprite(load_image("entities/player/jump.png"), 6, 1, 50, 50)
+        self.run_r = AnimatedSprite(load_image("entities/player/run.png"), 6, 1, 50, 50)
+        self.place_r = AnimatedSprite(load_image("entities/player/placing.png"), 6, 1, 50, 50)
+
+        self.idle_left = AnimatedSprite(
+            load_image('entities/player/idle.png'), 4, 1, 50, 50, True)
+        self.jump_l = AnimatedSprite(
+            load_image("entities/player/jump.png"), 6, 1, 50, 50, True)
+
+        self.run_l = AnimatedSprite(
+            load_image("entities/player/run.png"), 6, 1, 50, 50, True)
+        self.place_l = AnimatedSprite(load_image('entities/player/placing.png'), 6, 1, 50, 50, True)
 
     def update(self, left, right, up):
         self.delta_x = 0  # Общее изменение
         self.delta_y = 0  # за всю работу функции
-        if left:
-            self.delta_x = -self.moving_velocity
-        if right:
-            self.delta_x = self.moving_velocity
+
+        self.frame = self.frame % 30
+
         if up:
             if not self.in_air:
                 self.vel_y = -self.jump_force
                 self.in_air = True
+        if right:
+            self.facing = 1
+            self.delta_x = self.moving_velocity
+
+        if left:
+            self.facing = -1
+            self.delta_x = -self.moving_velocity
 
         self.vel_y += 1
         if self.vel_y > GRAVITY_FORCE:
@@ -269,6 +368,8 @@ class Player(Entity):
 
             if platform.rect.colliderect(tmp_rect):
                 # Проверка на столкновение по y
+                if platform.kill_if_touched:
+                    return True
                 if self.vel_y < 0:
                     # Если летит вверх
                     self.delta_y = platform.rect.bottom - self.rect.top
@@ -280,67 +381,146 @@ class Player(Entity):
                     self.is_onground = True
             else:
                 self.in_air = True
-
+        x, y = self.rect.x, self.rect.y
+        # Анимации
         if self.is_onground:
             self.in_air = False
+            if self.torch_placed:
+                if self.animation_before != 'placing':
+                    self.frame = 0
+                    self.animation_before = 'placing'
+                if self.facing == 1:
+                    self.place_r.update(x, y, self.frame // 3)
+                    # // 3 чтобы дольше длилась
+                else:
+                    self.place_l.update(x, y, self.frame // 3)
+
+            elif self.was_flying:
+                # Только приземлился, так что круто
+                if self.animation_before != 'landing':
+                    self.frame = 0
+                    self.animation_before = 'landing'
+
+                if self.facing == 1:
+                    self.jump_r.update(x, y, 6 - self.frame)
+                else:
+                    self.jump_l.update(x, y, 6 - self.frame)
+
+            elif self.delta_x < 0 or self.delta_x > 0:
+                if self.animation_before != 'run':
+                    self.frame = 0
+                    self.animation_before = 'run'
+
+                if self.delta_x > 0:
+                    # Идет вправо
+                    self.run_r.update(x, y, self.frame // 6)
+                else:
+                    # Идет влево
+                    self.run_l.update(x, y, self.frame // 6)
+
+            else:
+                # АФК (ну типа)
+                if self.animation_before != 'idle':
+                    self.frame = 0
+                    self.animation_before = 'idle'
+
+                if self.facing == 1:
+                    self.idle_right.update(x, y, self.frame // 4)
+                else:
+                    self.idle_left.update(x, y, self.frame // 4)
+
+        else:
+            if self.delta_y < 0:
+                # Прыгает
+                if self.animation_before != 'jump':
+                    self.animation_before = 'jump'
+                    self.frame = 0
+
+                if self.frame >= 2:
+                    # Чтобы не повторялась анимация
+                    self.frame = 2
+                if self.facing == 1:
+                    self.jump_r.update(x, y, self.frame)
+                else:
+                    self.jump_l.update(x, y, self.frame)
+            else:
+                # Падает
+                if self.animation_before != 'drop':
+                    self.animation_before = 'drop'
+
+                if self.facing == 1:
+                    self.jump_r.update(x, y, 3)
+                else:
+                    self.jump_l.update(x, y, 3)
+
         self.is_onground = False
 
         self.rect.x += self.delta_x
         self.rect.y += self.delta_y
+        self.frame += 1
 
-    def draw(self, screen):
-        screen.blit(self.image, (self.rect.x, self.rect.y))
-        # pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)  # - чтобы было удобно дебажить
+        if self.frame == 3 and self.animation_before == 'landing':
+            self.was_flying = False
+
+        if self.animation_before == 'placing' and self.frame // 3 == 6:
+            self.torch_placed = False
+
+        if self.in_air:
+            self.was_flying = True
+
+        pygame.draw.rect(screen, (0, 0, 200), self.rect, 3)  # hitbox
 
     def get_coord(self):
         return self.rect.x, self.rect.y
 
     def try_placing_torch(self):
         if not self.in_air:
-            torch = Torch(*self.rect.bottomleft)
-            print('Working')
-        else:
-            print('not')
-
-    def kill(self):
-        pass
+            if self.facing == 1:
+                torch = Torch(self.rect.bottomright[0] - 3, self.rect.bottomright[1])
+            else:
+                torch = Torch(self.rect.bottomleft[0] + 3, self.rect.bottomleft[1])
+            self.torch_placed = True
 
 
 class Enemy(Entity):
     def __init__(self, size_x, size_y, x, y, max_length_right, max_length_left,
                  texture=None, is_collide=True, health=None):
         super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True, health=100)
-        self.max_length_right = max_length_right
-        self.max_length_left = max_length_left
-        self.max_length_vel = max_length_right
-
-        if self.max_length_vel - self.size_x == 0:
-            self.facing = -1
-        else:
-            self.facing = 1
+        self.start_x = x
+        self.facing = 1
+        self.moving_velocity -= 3
+        self.to_left_border = max_length_left
+        self.to_right_border = max_length_right
 
     def update(self):
-        self.rect.x += (self.moving_velocity - 3) * self.facing
-        self.max_length_vel -= (self.moving_velocity - 3) * self.facing
-
-        if self.max_length_vel - self.size_x == 0 and self.facing == 1:
-            self.facing = -1
-
-        if self.max_length_vel > self.max_length_right + self.max_length_left and self.facing == -1:
+        """
+        :return: True, если соприкоснулся с игроком, иначе False
+        """
+        if self.to_left_border <= 0 and self.facing == -1:
             self.facing = 1
+        elif self.to_right_border <= 0 and self.facing == 1:
+            self.facing = -1
+        else:
+            self.to_left_border += self.moving_velocity * self.facing
+            self.to_right_border -= self.moving_velocity * self.facing
+            self.rect.x += self.moving_velocity * self.facing
 
         for platform in platforms:
             if pygame.sprite.collide_rect(self, platform) and self != platform:
-                self.facing = -1 if self.facing == 1 else 1
+                self.facing *= -1
+        if self.rect.colliderect(player.rect):
+            return True
+        return False
 
     def draw(self, screen):
-        screen.blit(self.image, (self.rect.x, self.rect.y))
+        pygame.draw.rect(screen, (44, 3, 9), self.rect)
 
 
 class Platform(pygame.sprite.Sprite):
     """Наследуется от sprite только для того, чтобы камера работала"""
 
-    def __init__(self, size_x, size_y, x, y, color=(255, 255, 255), pebble_color=(50, 50, 50)):
+    def __init__(self, size_x, size_y, x, y, color=(255, 255, 255), pebble_color=(50, 50, 50),
+                 pebble_amount=2):
         super().__init__(obstacles)
         self.size_x, self.size_y = size_x, size_y
         self.x, self.y = x, y
@@ -351,7 +531,9 @@ class Platform(pygame.sprite.Sprite):
         # Переменная, где записан уровень освещенности от статичных
         # источников света (факелов)
         self.pebbles = []
-        self.generate_pebbles(2)
+        self.generate_pebbles(pebble_amount)
+        self.kill_if_touched = False
+        # Для spikes
 
     def generate_pebbles(self, k):
         """Генерирует k камешков"""
@@ -384,8 +566,10 @@ class Platform(pygame.sprite.Sprite):
 
 
 class Spike(Platform):
-    def __init__(self, size_x, size_y, x, y, color=(0, 255, 0)):
-        Platform.__init__(self, size_x, size_y, x, y, color)
+    def __init__(self, size_x, size_y, x, y, color=(88, 15, 15)):
+        Platform.__init__(self, size_x, size_y, x, y, color, pebble_amount=4,
+                          pebble_color=(98,65,33))
+        self.kill_if_touched = True
         # Если мы пересекаемся с этим блоком то мы умераем (Земля пухом)
 
 
@@ -401,7 +585,7 @@ class Bullet(pygame.sprite.Sprite):
 
         self.image = pygame.Surface((2 * radius, 2 * radius))
         pygame.draw.circle(self.image, pygame.Color((255, 255, 0)), (radius, radius), radius)
-        self.rect = pygame.Rect(x, y, 2 * radius, 2 * radius)
+        self.rect = pygame.Rect(self.x, self.y, 2 * radius, 2 * radius)
 
 
 class Camera:
@@ -431,16 +615,19 @@ class Camera:
 class Air(pygame.sprite.Sprite):
     """Сделано для красивого освещения"""
 
-    def __init__(self, size_x, size_y, x, y, color=(255, 255, 255)):
+    def __init__(self, size_x, size_y, x, y, finish=False, color=(255, 255, 255)):
         super().__init__(all_sprites)
         self.size_x, self.size_y = size_x, size_y
         self.x, self.y = x, y
         self.static_brightness = 0
         self.color = color
+        self.finish = finish
         self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
         air_blocks.append(self)
 
     def draw(self, screen):
+        if self.rect.colliderect(player.rect) and self.finish:
+            player.won = True
         tmp_color, brightness = change_color(self.color, self.rect.centerx, self.rect.centery,
                                              player.rect.centerx, player.rect.centery,
                                              self.static_brightness)
@@ -507,15 +694,14 @@ class Torch(pygame.sprite.Sprite):
 
 
 def main(level):
-    global platforms, player
+    global platforms, player, screen
     pygame.init()
 
     pygame.display.set_caption(WINDOW_CAPTION)
     screen = pygame.display.set_mode(SIZE)
 
     platforms, decoratives, player_x, player_y = convert_level(level)
-    player = Player(50, 50, player_x, player_y - 20,
-                    texture='entities/arrow.png')  # TODO Поменять файл
+    player = Player(20, 50, player_x, player_y)
     all_sprites.add(player)
 
     bullets = []
@@ -536,6 +722,9 @@ def main(level):
     paused = False
     running = True
     while running:
+        if player.won:
+            menu.ending_screen(screen)
+            return None
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -574,9 +763,6 @@ def main(level):
         if not paused:  # Если игра не на паузе отрисовываем главную сцену, иначе меню паузы
             screen.fill((0, 0, 0))
 
-            enemies.update()
-            enemies.draw(screen)
-
             for platform in platforms:
                 platform.draw(screen)
 
@@ -596,7 +782,14 @@ def main(level):
             shots.update(bullets)
             shots.draw(screen)
 
-            player.update(left, right, up)
+            for enemy in enemies:
+                died = enemy.update()
+                enemy.draw(screen)
+                if died:
+                    menu.ending_screen(screen, False)
+                    return None
+
+            died = player.update(left, right, up)
             camera.update(player)
 
             player.draw(screen)
@@ -608,7 +801,11 @@ def main(level):
             screen.set_clip(None)
 
             pygame.display.flip()
-            clock.tick(60)
+            clock.tick(FPS)
+            if died:
+                menu.ending_screen(screen, False)
+                return None
+
         else:  # TODO починить отрисовку
             button_pos_y = 300
             up, left, right = False, False, False
