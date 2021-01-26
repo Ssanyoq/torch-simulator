@@ -14,13 +14,13 @@ def last_change(file_path):
 
 
 def encrypt_str(text):
-    '''
+    """
     Ну это типа шифровка, просто чтобы немного защищеннее было
     text - текст для шифровки
     Вызывает ошибку, если его нету
     Ничего не возвращает, изменяет файл
     Возвращает зашифрованный str
-    '''
+    """
     new_data = ''
     count = 0
     for symbol in text:
@@ -31,12 +31,12 @@ def encrypt_str(text):
 
 
 def decode_file(file):
-    '''
+    """
     Ну это типа декодировка, просто чтобы немного защищеннее было
     file - относительный путь файла от программы
     Вызывает ошибку, если его нету
     Возвращает расшифрованный файл в формате str
-    '''
+    """
     file = pathlib.Path(file)
     assert file.exists(), f"File {file} does not exist"
     with open(file, mode='r', encoding='utf-8') as f:
@@ -127,4 +127,3 @@ def check_if_completed(completing_time, file, path='misc/levels/', extension='.t
         return False
     else:
         return True
-

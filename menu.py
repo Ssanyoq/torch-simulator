@@ -5,8 +5,8 @@ import pygame
 import files_manager
 import main
 
-radio = None
 pygame.init()
+SIZE = 1200, 720
 
 
 def draw_text(screen, text, pos_x, pos_y, color="White", font_size=50):
@@ -50,11 +50,11 @@ def draw_texts(screen, text, pos_x, pos_y, text_delta=0, color='White', font_siz
 def get_levels_names(folder='misc/levels'):
     """
     Возвращает список с именами всех .txt файлов из
-    папки folder, например, ['level1','example2','sadpjpajsdl']
+    папки folder, например, ['level1','example2','level_1']
     folder - относительный путь папки от данного файла
     """
     level_names = []
-    for (dirpath, dirnames, filenames) in os.walk(folder):
+    for (dir_path, dir_names, filenames) in os.walk(folder):
         for filename in filenames:
             if filename.split('.')[1] == 'txt':
                 # Проверка на .txt
@@ -307,16 +307,17 @@ def ending_screen(screen, won=True, cur_level=None):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-                main.clear_stuff(screen)
+                main.clear_stuff()
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if quit_button.collidepoint(pygame.mouse.get_pos()):
-                    main.clear_stuff(screen)
+                    main.clear_stuff()
                     start_screen()
                     return None
                 if not won:
                     if retry_button.collidepoint(pygame.mouse.get_pos()):
-                        main.clear_stuff(screen)
+                        main.clear_stuff()
                         main.main(cur_level)
+                        return None
         pygame.display.flip()
     pygame.quit()
 
@@ -344,7 +345,6 @@ def info_gui(screen, coins, torches):
 def start_screen():
     pygame.init()
     pygame.display.set_caption("Murky Gloom")
-    SIZE = WIDTH, HEIGHT = 1200, 720
     screen = pygame.display.set_mode(SIZE)
 
     buttons = [
@@ -367,6 +367,7 @@ def start_screen():
 
     radio = pygame.mixer.Sound('misc/sounds/music_in_menu.mp3')
     radio.play()
+    radio.set_volume(0.1)
     check_radio = True
     clock = pygame.time.Clock()
 
@@ -400,8 +401,9 @@ def start_screen():
                             else:
                                 radio = pygame.mixer.Sound('misc/sounds/music_in_menu.mp3')
                                 radio.play()
+                                radio.set_volume(0.1)
                                 check_radio = True
-                                # TODO доделать радио
+
         pygame.display.flip()
         clock.tick(100)
     radio.stop()

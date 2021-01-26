@@ -2,9 +2,7 @@ import datetime
 import math
 import random
 import time
-
 import pygame
-import sys
 import os
 import menu
 import files_manager
@@ -20,7 +18,7 @@ BRIGHTNESS_INFO = {
     4: [210, 60], 3: [240, 70], 2: [270, 80],
     1: [270, 90]
 }
-# Всего 7 уровней освещения, 7 - максимальный
+# Всего 10 уровней освещения, 10-ый - максимальный
 # Словарь - каждому ключу соответствует нижняя
 # граница расстояния, при котором будет этот уровень освещенности
 # и второе число - сколько нано отнять от r,g,b начального цвета
@@ -34,7 +32,7 @@ obstacles = pygame.sprite.Group()
 entities = pygame.sprite.Group()
 enemies = []
 all_sprites = pygame.sprite.Group()
-shots = pygame.sprite.Group()
+platforms = []
 light_sources = []
 # Список с rect источников света
 
@@ -43,26 +41,24 @@ darkness_radius = 180
 darkness_area = pygame.Surface((SIZE_X, SIZE_Y), pygame.SRCALPHA)
 darkness_area.fill((0, 0, 0))
 pygame.draw.circle(darkness_area, (0, 0, 0, 0), (SIZE_X // 2, SIZE_Y // 2), darkness_radius)
-platforms = []
 air_blocks = []
 torches = []
 player = None  # Чтобы пичярм не жаловался
 
 
 def convert_level(level, path='misc/levels'):
-    # Функция открывает текстовый файл, в котором содержатся необходимые игровые элементы ->
-    # после чего создает список этих элементов(платформы, монстры и т.д).
+    # Функция открывает текстовый файл, в котором содержатся необходимые игровые элементы
+    # после чего создает список этих элементов(платформы, монстры и т.д)
     with open(f"""{path}/{level}.txt""", encoding='utf-8') as f:
         data = f.readlines()
 
     level = [i.rstrip() for i in data]
-    platforms = []
-    decoratives = []
+    platforms_list = []
+    decorations = []
     player_x, player_y = 0, 0
 
     x = y = 0
-    i = 0
-    max_string_length = int(len(max(level, key=lambda x: len(x))))
+    max_string_length = int(len(max(level, key=lambda l: len(l))))
     # Чтобы края закрывать красивым чем-нибудь
 
     for i in range(5):
@@ -70,40 +66,41 @@ def convert_level(level, path='misc/levels'):
         for _ in range(max_string_length + 3):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
-            platforms.append(platform)
+            platforms_list.append(platform)
             x += 30
         x = 0
         y += 30
 
+    max_path_left, max_path_right = 0, 0
     for i, row in enumerate(level):
         for j in range(3):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
-            platforms.append(platform)
+            platforms_list.append(platform)
             x += 30
         for k, element in enumerate(row):
             if element == "-":
                 platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
                 # obstacles.add(platform)
-                platforms.append(platform)
+                platforms_list.append(platform)
                 obstacles.add(platform)
                 all_sprites.add(platform)
             elif element == "*":
-                spike = Spike(30, 30, x, y)  # TODO
+                spike = Spike(30, 30, x, y)
                 obstacles.add(spike)
                 all_sprites.add(spike)
-                platforms.append(spike)
+                platforms_list.append(spike)
             elif element.lower() == 'e' or element.lower() == 'е':
                 if len(level) - 1 == i:
                     continue
                 bottom_line = list(level[i + 1])
                 if len(bottom_line) - 1 < k:
                     air = Air(30, 30, x, y, color=AIR_COLOR)
-                    decoratives.append(air)
+                    decorations.append(air)
                     continue
                 elif bottom_line[k] != '-':
                     air = Air(30, 30, x, y, color=AIR_COLOR)
-                    decoratives.append(air)
+                    decorations.append(air)
                     continue
                 stopped = False
                 left_from_enemy = bottom_line[:k + 1][::-1]
@@ -129,23 +126,23 @@ def convert_level(level, path='misc/levels'):
                 all_sprites.add(enemy)
 
                 air = Air(30, 30, x, y, color=AIR_COLOR)
-                decoratives.append(air)
+                decorations.append(air)
             elif element.lower() == 's':
                 player_x, player_y = x, y
                 air = Air(30, 30, x, y, color=AIR_COLOR)
-                decoratives.append(air)
+                decorations.append(air)
             elif element.lower() == 'f':
                 finish = Air(30, 30, x, y, finish=True, color=FINISH_COLOR)
-                decoratives.append(finish)
+                decorations.append(finish)
             else:
                 air = Air(30, 30, x, y, color=AIR_COLOR)
-                decoratives.append(air)
+                decorations.append(air)
             x += 30
 
         for j in range(max_string_length + 3 - (len(row) + 3)):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
-            platforms.append(platform)
+            platforms_list.append(platform)
             x += 30
         y += 30
         x = 0
@@ -155,12 +152,12 @@ def convert_level(level, path='misc/levels'):
         for _ in range(max_string_length + 3):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
-            platforms.append(platform)
+            platforms_list.append(platform)
             x += 30
         x = 0
         y += 30
 
-    return platforms, decoratives, player_x, player_y
+    return platforms_list, decorations, player_x, player_y
 
 
 def load_image(name, color_key=None):
@@ -169,7 +166,6 @@ def load_image(name, color_key=None):
     fullname = os.path.join('misc', name)
     if not os.path.isfile(fullname):
         raise FileNotFoundError
-        sys.exit()
     image = pygame.image.load(fullname)
     if color_key is not None:
         if color_key == -1:
@@ -180,15 +176,14 @@ def load_image(name, color_key=None):
     return image
 
 
-def clear_stuff(screen):
-    global obstacles, player, entities, enemies, all_sprites, shots, platforms, air_blocks, \
+def clear_stuff():
+    global obstacles, player, entities, enemies, all_sprites, platforms, air_blocks, \
         light_sources, torches
     player = None
     obstacles = pygame.sprite.Group()
     entities = pygame.sprite.Group()
     enemies = []
     all_sprites = pygame.sprite.Group()
-    shots = pygame.sprite.Group()
     platforms = []
     air_blocks = []
     light_sources = []
@@ -578,21 +573,6 @@ class Spike(Platform):
         # Если мы пересекаемся с этим блоком то мы умераем (Земля пухом)
 
 
-class Bullet(pygame.sprite.Sprite):
-    def __init__(self, x, y, radius, color, facing):
-        pygame.sprite.Sprite.__init__(self)
-        self.x, self.y = x, y
-        self.radius = radius
-        self.color = color
-        self.facing = facing
-        self.speed = 10 * facing
-        self.damage = 25
-
-        self.image = pygame.Surface((2 * radius, 2 * radius))
-        pygame.draw.circle(self.image, pygame.Color((255, 255, 0)), (radius, radius), radius)
-        self.rect = pygame.Rect(self.x, self.y, 2 * radius, 2 * radius)
-
-
 class Camera:
     def __init__(self):
         self.x = -player.rect.x + SIZE_X // 2
@@ -672,7 +652,7 @@ class Torch(pygame.sprite.Sprite):
         light_sources.append(self.upper_rect)
         torches.append(self)
 
-    def draw(self, screen):
+    def draw(self, surface):
         self.bottom_rect = pygame.Rect(self.rect.x - self.rect.width,
                                        self.rect.y - self.rect.height,
                                        self.rect.width, self.rect.height)
@@ -680,10 +660,11 @@ class Torch(pygame.sprite.Sprite):
                                       self.bottom_rect.y - self.bottom_rect.width,
                                       self.bottom_rect.width, self.bottom_rect.width
                                       )
-        pygame.draw.rect(screen, self.bottom_color, self.bottom_rect)
-        pygame.draw.rect(screen, self.upper_color, self.upper_rect)
+        pygame.draw.rect(surface, self.bottom_color, self.bottom_rect)
+        pygame.draw.rect(surface, self.upper_color, self.upper_rect)
 
     def change_static_light(self):
+        """ Меняет статическое освещение у платформ """
         for platform in platforms:
             color, brightness_lvl = change_color((0, 0, 0), platform.rect.centerx,
                                                  platform.rect.centery, self.upper_rect.centerx,
@@ -705,7 +686,7 @@ def main(level):
     pygame.display.set_caption(WINDOW_CAPTION)
     screen = pygame.display.set_mode(SIZE)
 
-    platforms, decoratives, player_x, player_y = convert_level(level)
+    platforms, decorations, player_x, player_y = convert_level(level)
     coins, torches_amount, level_data = files_manager.load_player_data()
     player = Player(20, 50, player_x, player_y, torches=torches_amount)
     all_sprites.add(player)
@@ -715,16 +696,9 @@ def main(level):
     # (переделывается в читабельную дату через
     # datetime.datetime.utcfromtimestamp(start_time))
 
-    bullets = []
-    facing = 1  # Направление пуль, изначально пули летят вправо
-
     camera = Camera()  # Создаем камеру
     for sprite in all_sprites:
         camera.apply(sprite)
-
-    # darkness_rect = pygame.Rect((0, 0), (darkness_radius * 2, darkness_radius * 2),)
-    # screen.set_clip(darkness_rect) TODO включить
-    # Поверх экрана происходит отрисовка прямоугольника с вырезанным по середине кругом (Темнота)
 
     left = False
     right = False
@@ -746,30 +720,23 @@ def main(level):
             if event.type == pygame.QUIT:
                 files_manager.save_player_data(coins, player.torches, level_data)
                 running = False
-            if event.type == pygame.KEYDOWN and event.key in [pygame.K_LEFT, pygame.K_a]:
-                left = True
-                facing = -1  # Запоминаем направление пули
-            if event.type == pygame.KEYDOWN and event.key in [pygame.K_RIGHT, pygame.K_d]:
-                right = True
-                facing = 1  # Запоминаем направление пули
-            if event.type == pygame.KEYUP and event.key in [pygame.K_RIGHT, pygame.K_d]:
-                right = False
-            if event.type == pygame.KEYUP and event.key in [pygame.K_LEFT, pygame.K_a]:
-                left = False
-            if event.type == pygame.KEYDOWN and event.key in [pygame.K_UP, pygame.K_w,
-                                                              pygame.K_SPACE]:
-                up = True
-            if event.type == pygame.KEYUP and event.key in [pygame.K_UP, pygame.K_w,
-                                                            pygame.K_SPACE]:
-                up = False
+            if event.type == pygame.KEYDOWN:
+                if event.key in [pygame.K_LEFT, pygame.K_a]:
+                    left = True
+                if event.key in [pygame.K_RIGHT, pygame.K_d]:
+                    right = True
+                if event.key in [pygame.K_UP, pygame.K_w, pygame.K_SPACE]:
+                    up = True
+            if event.type == pygame.KEYUP:
+                if event.key in [pygame.K_RIGHT, pygame.K_d]:
+                    right = False
+                if event.key in [pygame.K_LEFT, pygame.K_a]:
+                    left = False
+                if event.key in [pygame.K_UP, pygame.K_w, pygame.K_SPACE]:
+                    up = False
 
             if event.type == pygame.MOUSEBUTTONDOWN and not paused:
-                if event.button == 1:
-                    bullet = Bullet(player.rect.x + 25 // 2, player.rect.y + 25 // 2,
-                                    5, (100, 255, 0), facing)
-                    shots.add(bullet)
-                    bullets.append(bullet)
-                elif event.button == 3:
+                if event.button == 3:
                     player.try_placing_torch()
 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -781,21 +748,11 @@ def main(level):
             for platform in platforms:
                 platform.draw(screen)
 
-            for decorative in decoratives:
+            for decorative in decorations:
                 decorative.draw(screen)
 
             for torch in torches:
                 torch.draw(screen)
-
-            for bullet in bullets:
-                if SIZE_X > bullet.x > 0 and not pygame.sprite.spritecollideany(bullet, obstacles):
-                    bullet.rect.x += bullet.speed
-                else:
-                    bullets.pop(bullets.index(bullet))
-                    shots.remove(bullet)
-
-            shots.update(bullets)
-            shots.draw(screen)
             is_dead = False
             for enemy in enemies:
                 enemy.update()
@@ -809,9 +766,7 @@ def main(level):
 
             for sprite in all_sprites:
                 camera.apply(sprite)
-            # obstacles.draw(screen)
             menu.info_gui(screen, coins, player.torches)
-            # screen.blit(darkness_area, darkness_rect) TODO раскомментить
             screen.set_clip(None)
 
             pygame.display.flip()
@@ -821,7 +776,7 @@ def main(level):
                 menu.ending_screen(screen, False, cur_level=level)
                 return None
 
-        else:  # TODO починить отрисовку
+        else:
             button_pos_y = 300
             up, left, right = False, False, False
             buttons = []
@@ -861,7 +816,7 @@ def main(level):
                                     screen.fill((0, 0, 0))
                                     files_manager.save_player_data(coins, player.torches,
                                                                    level_data)
-                                    clear_stuff(screen)
+                                    clear_stuff()
                                     menu.start_screen()
                                     return None
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -871,4 +826,4 @@ def main(level):
 
 
 if __name__ == '__main__':
-    main('level_1')  # TODO изменить
+    menu.start_screen()
