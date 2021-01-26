@@ -149,7 +149,7 @@ def shop_screen(screen):
                     save_data(coins, torches, levels, data_changed)
                     start_screen()
                     return None
-            info_gui(screen,coins,torches)
+            info_gui(screen, coins, torches)
         pygame.display.flip()
 
 
@@ -277,14 +277,17 @@ def level_screen(menu_screen):
         pygame.display.flip()
 
 
-def ending_screen(screen, won=True):
+def ending_screen(screen, won=True, cur_level=None):
     """
     Менюшка, надписи на которой зависят от того,
     победил игрок или нет
     :param screen: экран
     :param won: победил или нет
+    :param cur_level: название нынешнего уровня, нужно только
+    для экрана поражения
     :return: None
     """
+    retry_button = None
     pygame.draw.rect(screen, (152, 130, 199), (300, 180, 600, 360))
     if won:
         bold_text = 'You won!'
@@ -292,8 +295,11 @@ def ending_screen(screen, won=True):
     else:
         bold_text = 'You lost'
         small_text = 'Better luck next time'
+        retry_button = pygame.draw.rect(screen, (200, 20, 20), (450, 460, 300, 45))
+        draw_text(screen, 'Retry', 570, 470, font_size=35)
+
     draw_text(screen, bold_text, 490, 250, font_size=75)
-    draw_text(screen, small_text, 430, 425)
+    draw_text(screen, small_text, 430, 410)
     quit_button = pygame.draw.rect(screen, (200, 0, 0), (825, 180, 75, 75))
     draw_text(screen, 'X', 845, 195, font_size=75)
     running = True
@@ -307,7 +313,12 @@ def ending_screen(screen, won=True):
                     main.clear_stuff(screen)
                     start_screen()
                     return None
+                if not won:
+                    if retry_button.collidepoint(pygame.mouse.get_pos()):
+                        main.clear_stuff(screen)
+                        main.main(cur_level)
         pygame.display.flip()
+    pygame.quit()
 
 
 def info_gui(screen, coins, torches):
