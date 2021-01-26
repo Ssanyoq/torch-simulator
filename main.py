@@ -38,9 +38,6 @@ light_sources = []
 
 darkness_radius = 180
 
-darkness_area = pygame.Surface((SIZE_X, SIZE_Y), pygame.SRCALPHA)
-darkness_area.fill((0, 0, 0))
-pygame.draw.circle(darkness_area, (0, 0, 0, 0), (SIZE_X // 2, SIZE_Y // 2), darkness_radius)
 air_blocks = []
 torches = []
 player = None  # Чтобы пичярм не жаловался
@@ -86,10 +83,10 @@ def convert_level(level, path='misc/levels'):
                 obstacles.add(platform)
                 all_sprites.add(platform)
             elif element == "*":
-                spike = Spike(30, 30, x, y)
-                obstacles.add(spike)
-                all_sprites.add(spike)
-                platforms_list.append(spike)
+                magma = Magma(30, 30, x, y)
+                obstacles.add(magma)
+                all_sprites.add(magma)
+                platforms_list.append(magma)
             elif element.lower() == 'e' or element.lower() == 'е':
                 if len(level) - 1 == i:
                     continue
@@ -479,7 +476,6 @@ class Player(Entity):
                 torch = Torch(self.rect.bottomleft[0] + 3, self.rect.bottomleft[1])
             self.torch_placed = True
             self.torches -= 1
-            print(self.torches)
 
 
 class Enemy(Entity):
@@ -494,9 +490,7 @@ class Enemy(Entity):
         self.killed_player = False
 
     def update(self):
-        """
-        :return: True, если соприкоснулся с игроком, иначе False
-        """
+        """ Обновляем пещерных злодеев """
         if self.to_left_border <= 0 and self.facing == -1:
             self.facing = 1
         elif self.to_right_border <= 0 and self.facing == 1:
@@ -513,6 +507,7 @@ class Enemy(Entity):
             self.killed_player = True
 
     def draw(self, screen):
+        """ Рисуем пещерных злодеев """
         pygame.draw.rect(screen, (44, 3, 9), self.rect)
 
 
@@ -533,7 +528,7 @@ class Platform(pygame.sprite.Sprite):
         self.pebbles = []
         self.generate_pebbles(pebble_amount)
         self.kill_if_touched = False
-        # Для spikes
+        # Для мыгмы (мамы)
 
     def generate_pebbles(self, k):
         """Генерирует k камешков"""
@@ -548,6 +543,7 @@ class Platform(pygame.sprite.Sprite):
             self.pebbles.append(pebble_rect)
 
     def draw(self, screen):
+        """ Рисуем платформы """
         tmp_color, brightness = change_color(self.color, self.rect.centerx, self.rect.centery,
                                              player.rect.centerx, player.rect.centery,
                                              self.static_brightness)
@@ -565,12 +561,12 @@ class Platform(pygame.sprite.Sprite):
             pygame.draw.rect(screen, pebble_color, pebble_rect)
 
 
-class Spike(Platform):
+class Magma(Platform):
     def __init__(self, size_x, size_y, x, y, color=(88, 15, 15)):
         Platform.__init__(self, size_x, size_y, x, y, color, pebble_amount=4,
                           pebble_color=(98, 65, 33))
         self.kill_if_touched = True
-        # Если мы пересекаемся с этим блоком то мы умераем (Земля пухом)
+        # Если мы пересекаемся с этим блоком то мы умираем (Земля пухом)
 
 
 class Camera:
@@ -611,6 +607,7 @@ class Air(pygame.sprite.Sprite):
         air_blocks.append(self)
 
     def draw(self, screen):
+        """ Рисуем газообразное вещество, составляющее атмосферу Земли """
         if self.rect.colliderect(player.rect) and self.finish:
             player.won = True
         tmp_color, brightness = change_color(self.color, self.rect.centerx, self.rect.centery,
@@ -653,6 +650,7 @@ class Torch(pygame.sprite.Sprite):
         torches.append(self)
 
     def draw(self, surface):
+        """ Рисуем торчи """
         self.bottom_rect = pygame.Rect(self.rect.x - self.rect.width,
                                        self.rect.y - self.rect.height,
                                        self.rect.width, self.rect.height)
@@ -712,7 +710,6 @@ def main(level):
         if player.won:
             level_data[level] = start_time
             coins += 5
-            print(f"level {level} completed at {datetime.datetime.utcfromtimestamp(start_time)}")
             files_manager.save_player_data(coins, player.torches, level_data)
             menu.ending_screen(screen)
             return None
