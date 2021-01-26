@@ -91,6 +91,8 @@ def convert_level(level, path='misc/levels'):
                 all_sprites.add(spike)
                 platforms.append(spike)
             elif element.lower() == 'e' or element.lower() == 'е':
+                if len(level) - 1 == i:
+                    continue
                 bottom_line = list(level[i + 1])
                 if len(bottom_line) - 1 < k:
                     air = Air(30, 30, x, y, color=AIR_COLOR)
