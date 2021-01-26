@@ -9,7 +9,7 @@ import files_manager
 GRAVITY_FORCE = 20
 SIZE = SIZE_X, SIZE_Y = 1200, 720
 WINDOW_CAPTION = 'Murky gloom'
-FPS = 120
+FPS = 60
 
 BRIGHTNESS_INFO = {
     10: [30, 0], 9: [60, 10], 8: [90, 20],
@@ -230,12 +230,15 @@ def change_color(color, center_x, center_y, light_x,
 
 
 class AnimatedSprite(pygame.sprite.Sprite):
-    def __init__(self, sheet, columns, rows, x, y):
+    def __init__(self, sheet, columns, rows, x, y, is_left=False):
         super().__init__(all_sprites)
         self.frames = []
+        if is_left:
+            sheet = pygame.transform.flip(sheet, True, False)
         self.cut_sheet(sheet, columns, rows)
         self.image = self.frames[0]
         self.rect = self.rect.move(x, y)
+        self.is_left = is_left
 
     def cut_sheet(self, sheet, columns, rows):
         self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
@@ -247,6 +250,9 @@ class AnimatedSprite(pygame.sprite.Sprite):
                     frame_location, self.rect.size)))
 
     def update(self, x, y, frame):
+        x -= 5
+        if self.is_left:
+            x -= 20
         frame = frame % len(self.frames)
         self.image = self.frames[frame]
         screen.blit(self.image, (x, y))
@@ -281,7 +287,7 @@ class Entity(pygame.sprite.Sprite):
 class Player(Entity):
     def __init__(self, size_x, size_y, x, y, texture=None, is_collide=True, health=None, torches=0):
         super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True, health=100)
-        self.jump_force = 20
+        self.jump_force = 15
         self.vel_y = GRAVITY_FORCE
         self.facing = 1
         # Способ сделать красивые падения
@@ -291,22 +297,28 @@ class Player(Entity):
 
         self.delta_x, self.delta_y = 0, 0
         self.torches = torches
+        self.was_flying = False
+        # Переменная, показывающая, был ли персонаж в
+        # воздухе кадр назад
 
         self.frame = 0
-
+        self.animation_before = None
+        # Переменная, где показывается, какая анимация была в
+        # прошлый вызов функции update
         self.idle_right = AnimatedSprite(load_image('entities/player/idle.png'), 4, 1, 50, 50)
         self.jump_r = AnimatedSprite(load_image("entities/player/jump.png"), 6, 1, 50, 50)
         self.run_r = AnimatedSprite(load_image("entities/player/run.png"), 6, 1, 50, 50)
 
         self.idle_left = AnimatedSprite(
-            pygame.transform.flip(load_image('entities/player/idle.png'), True, False), 4, 1,
-            50, 50)
+            load_image('entities/player/idle.png'), 4, 1,
+            50, 50, True)
         self.jump_l = AnimatedSprite(
-            pygame.transform.flip(load_image("entities/player/jump.png"), True, False), 6, 1,
-            50, 50)
+            load_image("entities/player/jump.png"), 6, 1,
+            50, 50, True)
+
         self.run_l = AnimatedSprite(
-            pygame.transform.flip(load_image("entities/player/run.png"), True, False), 6, 1,
-            50, 50)
+            load_image("entities/player/run.png"), 6, 1,
+            50, 50, True)
 
     def update(self, left, right, up):
         self.delta_x = 0  # Общее изменение
@@ -318,39 +330,13 @@ class Player(Entity):
             if not self.in_air:
                 self.vel_y = -self.jump_force
                 self.in_air = True
-            if self.facing == 1:
-                self.jump_r.update(self.rect.x, self.rect.y, self.frame // 5)
-            else:
-                self.jump_l.update(self.rect.x, self.rect.y, self.frame // 5)
-
         if right:
             self.facing = 1
             self.delta_x = self.moving_velocity
-            if self.vel_y < 0:
-                self.jump_r.update(self.rect.x, self.rect.y, self.frame // 5)
-            elif self.vel_y == 0:
-                self.run_r.update(self.rect.x, self.rect.y, self.frame // 5)
 
         if left:
-            self.facing -= 1
+            self.facing = -1
             self.delta_x = -self.moving_velocity
-            if self.vel_y < 0:
-                self.jump_l.update(self.rect.x, self.rect.y, self.frame // 5)
-            elif self.vel_y == 0:
-                self.run_l.update(self.rect.x, self.rect.y, self.frame // 5)
-
-        if not (left or right or up) and self.vel_y == 0:  # Если стоим
-            if self.facing == 1:
-                self.idle_right.update(self.rect.x, self.rect.y, self.frame // 5)
-            else:
-                self.idle_left.update(self.rect.x, self.rect.y, self.frame // 4)
-
-        if self.vel_y > 0:  # Если падаем
-            if self.facing == 1:
-                self.jump_r.update(self.rect.x, self.rect.y, 4)
-            else:
-                self.jump_l.update(self.rect.x, self.rect.y, 4)
-        self.frame += 1
 
         self.vel_y += 1
         if self.vel_y > GRAVITY_FORCE:
@@ -386,14 +372,75 @@ class Player(Entity):
                     self.is_onground = True
             else:
                 self.in_air = True
-
+        x, y = self.rect.x, self.rect.y
+        # Анимации
         if self.is_onground:
             self.in_air = False
-        self.is_onground = False
+            if self.was_flying:
+                # Только приземлился, так что круто
+                if self.animation_before != 'landing':
+                    self.frame = 0
+                    self.animation_before = 'landing'
 
+                if self.facing == 1:
+                    self.jump_r.update(x, y, 6 - self.frame)
+                else:
+                    self.jump_l.update(x, y, 6 - self.frame)
+
+            elif self.delta_x < 0 or self.delta_x > 0:
+                if self.animation_before != 'run':
+                    self.frame = 0
+                    self.animation_before = 'run'
+
+                if self.delta_x > 0:
+                    # Идет вправо
+                    self.run_r.update(x, y, self.frame // 6)
+                else:
+                    # Идет влево
+                    self.run_l.update(x, y, self.frame // 6)
+            else:
+                # АФК (ну типа)
+                if self.animation_before != 'idle':
+                    self.frame = 0
+                    self.animation_before = 'idle'
+
+                if self.facing == 1:
+                    self.idle_right.update(x, y, self.frame // 4)
+                else:
+                    self.idle_left.update(x, y, self.frame // 4)
+        else:
+            if self.delta_y < 0:
+                # Прыгает
+                if self.animation_before != 'jump':
+                    self.animation_before = 'jump'
+                    self.frame = 0
+
+                if self.frame >= 2:
+                    # Чтобы не повторялась анимация
+                    self.frame = 2
+                if self.facing == 1:
+                    self.jump_r.update(x, y, self.frame)
+                else:
+                    self.jump_l.update(x, y, self.frame)
+            else:
+                # Падает
+                if self.animation_before != 'drop':
+                    self.animation_before = 'drop'
+
+                if self.facing == 1:
+                    self.jump_r.update(x, y, 3)
+                else:
+                    self.jump_l.update(x, y, 3)
+
+        self.is_onground = False
         self.rect.x += self.delta_x
         self.rect.y += self.delta_y
-        pygame.draw.rect(screen, (0, 0, 200), self.rect, 3)
+        self.frame += 1
+        if self.frame == 3 and self.animation_before == 'landing':
+            self.was_flying = False
+        if self.in_air:
+            self.was_flying = True
+        pygame.draw.rect(screen, (0, 0, 200), self.rect, 3)  # hitbox
 
     def get_coord(self):
         return self.rect.x, self.rect.y
@@ -705,7 +752,6 @@ def main(level):
             player.update(left, right, up)
             camera.update(player)
 
-            player.draw(screen)
             for sprite in all_sprites:
                 camera.apply(sprite)
             # obstacles.draw(screen)
