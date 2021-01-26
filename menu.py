@@ -212,8 +212,10 @@ def ending_screen(screen, won=True):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                main.clear_stuff(screen)
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if quit_button.collidepoint(pygame.mouse.get_pos()):
+                    main.clear_stuff(screen)
                     start_screen()
                     return None
         pygame.display.flip()

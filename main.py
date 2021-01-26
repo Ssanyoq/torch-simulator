@@ -180,7 +180,7 @@ def clear_stuff(screen):
     player = None
     obstacles = pygame.sprite.Group()
     entities = pygame.sprite.Group()
-    enemies = pygame.sprite.Group()
+    enemies = []
     all_sprites = pygame.sprite.Group()
     shots = pygame.sprite.Group()
     platforms = []
@@ -363,6 +363,8 @@ class Player(Entity):
 
             if platform.rect.colliderect(tmp_rect):
                 # Проверка на столкновение по y
+                if platform.kill_if_touched:
+                    return True
                 if self.vel_y < 0:
                     # Если летит вверх
                     self.delta_y = platform.rect.bottom - self.rect.top
@@ -472,10 +474,6 @@ class Player(Entity):
             else:
                 torch = Torch(self.rect.bottomleft[0] + 3, self.rect.bottomleft[1])
             self.torch_placed = True
-            print('torch')
-
-    def kill(self):
-        pass
 
 
 class Enemy(Entity):
@@ -489,6 +487,9 @@ class Enemy(Entity):
         self.to_right_border = max_length_right
 
     def update(self):
+        """
+        :return: True, если соприкоснулся с игроком, иначе False
+        """
         if self.to_left_border <= 0 and self.facing == -1:
             self.facing = 1
         elif self.to_right_border <= 0 and self.facing == 1:
@@ -501,15 +502,19 @@ class Enemy(Entity):
         for platform in platforms:
             if pygame.sprite.collide_rect(self, platform) and self != platform:
                 self.facing *= -1
+        if self.rect.colliderect(player.rect):
+            return True
+        return False
 
     def draw(self, screen):
-        pygame.draw.rect(screen, (200, 200, 200), self.rect)
+        pygame.draw.rect(screen, (44, 3, 9), self.rect)
 
 
 class Platform(pygame.sprite.Sprite):
     """Наследуется от sprite только для того, чтобы камера работала"""
 
-    def __init__(self, size_x, size_y, x, y, color=(255, 255, 255), pebble_color=(50, 50, 50)):
+    def __init__(self, size_x, size_y, x, y, color=(255, 255, 255), pebble_color=(50, 50, 50),
+                 pebble_amount=2):
         super().__init__(obstacles)
         self.size_x, self.size_y = size_x, size_y
         self.x, self.y = x, y
@@ -520,7 +525,9 @@ class Platform(pygame.sprite.Sprite):
         # Переменная, где записан уровень освещенности от статичных
         # источников света (факелов)
         self.pebbles = []
-        self.generate_pebbles(2)
+        self.generate_pebbles(pebble_amount)
+        self.kill_if_touched = False
+        # Для spikes
 
     def generate_pebbles(self, k):
         """Генерирует k камешков"""
@@ -553,8 +560,10 @@ class Platform(pygame.sprite.Sprite):
 
 
 class Spike(Platform):
-    def __init__(self, size_x, size_y, x, y, color=(0, 255, 0)):
-        Platform.__init__(self, size_x, size_y, x, y, color)
+    def __init__(self, size_x, size_y, x, y, color=(88, 15, 15)):
+        Platform.__init__(self, size_x, size_y, x, y, color, pebble_amount=4,
+                          pebble_color=(98,65,33))
+        self.kill_if_touched = True
         # Если мы пересекаемся с этим блоком то мы умераем (Земля пухом)
 
 
@@ -768,10 +777,13 @@ def main(level):
             shots.draw(screen)
 
             for enemy in enemies:
-                enemy.update()
+                died = enemy.update()
                 enemy.draw(screen)
+                if died:
+                    menu.ending_screen(screen, False)
+                    return None
 
-            player.update(left, right, up)
+            died = player.update(left, right, up)
             camera.update(player)
 
             for sprite in all_sprites:
@@ -783,6 +795,10 @@ def main(level):
 
             pygame.display.flip()
             clock.tick(FPS)
+            if died:
+                menu.ending_screen(screen, False)
+                return None
+
         else:  # TODO починить отрисовку
             button_pos_y = 300
             up, left, right = False, False, False
