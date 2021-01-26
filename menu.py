@@ -22,7 +22,7 @@ def draw_text(screen, text, pos_x, pos_y, color="White", font_size=50):
     :return: None
     """
     font = pygame.font.Font(None, font_size)
-    string_rendered = font.render(text, 1, pygame.Color(color))
+    string_rendered = font.render(str(text), True, pygame.Color(color))
     intro_rect = string_rendered.get_rect()
     intro_rect.y = pos_y
     intro_rect.x = pos_x
@@ -104,7 +104,7 @@ def shop_screen(screen):
     coins, torches, levels = files_manager.load_player_data()
     # Список вида [[<rect кнопки>, <надпись на кнопке>]]
     # Вернется в меню, если было нажатие на кнопку с индексом 2
-    buttons_names = ['Buy torch for 4 coins', f'You have {torches} torches', 'Back to menu']
+    buttons_names = ['Buy torch for 4 coins', 'Back to menu']
     for i in range(len(buttons_names)):
         button = pygame.draw.rect(screen, (200, 200, 200), (350, button_pos_y, 530, 60))
         buttons.append([button, buttons_names[i]])
@@ -129,7 +129,7 @@ def shop_screen(screen):
                     for i, button in enumerate(buttons):
                         # Проверка на совпадение координаты мыши с одной из кнопок
                         if pygame.Rect.collidepoint(button[0], pygame.mouse.get_pos()):
-                            if i == 2:
+                            if i == 1:
                                 save_data(coins, torches, levels, data_changed)
                                 start_screen()
                                 return None
@@ -142,8 +142,6 @@ def shop_screen(screen):
                                 else:
                                     coins -= price
                                     torches += 1
-                                    pygame.draw.rect(screen, (200, 200, 200), buttons[1][0])
-                                    draw_text(screen, f"You have {torches} torches", 355, 365)
                                     data_changed = True
 
             elif event.type == pygame.KEYDOWN:
@@ -151,6 +149,7 @@ def shop_screen(screen):
                     save_data(coins, torches, levels, data_changed)
                     start_screen()
                     return None
+            info_gui(screen,coins,torches)
         pygame.display.flip()
 
 
@@ -243,11 +242,12 @@ def level_screen(menu_screen):
                 for i in range(5):
                     if len(buttons_names) - 1 < i:
                         buttons[i][1] = None
+                        buttons[i][2] = False
                     else:
-                        buttons[i][1] = buttons_names[i]
-                        if current_levels[i] in levels_data.keys() and\
+                        buttons[i][1] = current_levels[i]
+                        if current_levels[i] in levels_data.keys() and \
                                 files_manager.check_if_completed(
-                                levels_data[current_levels[i]], current_levels[i]):
+                                    levels_data[current_levels[i]], current_levels[i]):
                             buttons[i][2] = True
                         else:
                             buttons[i][2] = False
@@ -266,13 +266,14 @@ def level_screen(menu_screen):
                 draw_texts(menu_screen, buttons_names, 355, text_pos_y, text_delta)
                 for button in buttons:
                     if button[2]:
-                        draw_text(menu_screen, "Пройдено", 790, button[0].y + 20, color="Green",
+                        draw_text(menu_screen, "Completed", 790, button[0].y + 20, color="Green",
                                   font_size=25)
 
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     start_screen()
                     return None
+        info_gui(menu_screen, coins, torches)
         pygame.display.flip()
 
 
@@ -307,6 +308,26 @@ def ending_screen(screen, won=True):
                     start_screen()
                     return None
         pygame.display.flip()
+
+
+def info_gui(screen, coins, torches):
+    """
+    Рисует маленький gui, где показано количество монет
+    и торчей
+    :param screen: экран для рисования
+    :param coins: сколько монет
+    :param torches: сколько торчей
+    :return: None
+    """
+    pygame.draw.rect(screen, (184, 184, 184), (1100, 620, 98, 98))
+    # Фон
+    pygame.draw.rect(screen, (255, 156, 50), (1120, 640, 3, 3))
+    pygame.draw.rect(screen, (50, 50, 50), (1120, 643, 3, 10))
+    # Факел
+    pygame.draw.circle(screen, (211, 183, 58), (1125, 687), 10)
+    draw_text(screen, torches, 1150, 640, font_size=25)
+    draw_text(screen, coins, 1150, 680, font_size=25)
+    # Тексты
 
 
 def start_screen():
