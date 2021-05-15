@@ -21,7 +21,7 @@ BRIGHTNESS_INFO = {
 # Всего 10 уровней освещения, 10-ый - максимальный
 # Словарь - каждому ключу соответствует нижняя
 # граница расстояния, при котором будет этот уровень освещенности
-# и второе число - сколько нано отнять от r,g,b начального цвета
+# и второе число - сколько надо отнять от r,g,b начального цвета
 
 PLATFORM_COLOR = (86, 72, 57)
 # Цвет платформы при максимальном освещении
@@ -145,7 +145,8 @@ def convert_level(level, path='misc/levels'):
         x = 0
 
     for i in range(5):
-        # Сделано для красивых краев, чтобы не было белых частей
+        # Сделано для красивых краев, чтобы не было
+        # белых частей по краям экрана
         for _ in range(max_string_length + 3):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
@@ -158,7 +159,7 @@ def convert_level(level, path='misc/levels'):
 
 
 def load_image(name, color_key=None):
-    # Функция для загрузки текстур, name - название файла с папкой
+    # Функция для загрузки текстур, name - название файла с папкой,
     # например, 'textures/icon.png
     fullname = os.path.join('misc', name)
     if not os.path.isfile(fullname):

@@ -1,6 +1,7 @@
 import math
 import os
 import pygame
+import sys
 
 import files_manager
 import main
@@ -68,6 +69,20 @@ def save_data(coins, torches, levels, is_changed):
     files_manager.save_player_data(coins, torches, levels)
 
 
+def check_os():
+    """
+    :return: True, если ОС продходит для проигрывания
+            музыки и False, если нет
+    """
+    # Возникла проблема в том, что почему-то
+    # звуки в pygame вызывают ошибку, если
+    # программа запущена на Linux, поэтому
+    # я сделал проверку на ОС. На всякий случай
+    # звук будет работать только на Windows (фича)
+
+    return sys.platform.startswith("win")
+
+
 def get_current_levels(all_levels, page):
     """
     :param all_levels: список с названиями всех уровней
@@ -100,10 +115,12 @@ def shop_screen(screen):
 
     button_pos_y = 250
     # y первой кнопки
+
     buttons = []
     coins, torches, levels = files_manager.load_player_data()
     # Список вида [[<rect кнопки>, <надпись на кнопке>]]
     # Вернется в меню, если было нажатие на кнопку с индексом 2
+
     buttons_names = ['Buy torch for 4 coins', 'Back to menu']
     for i in range(len(buttons_names)):
         button = pygame.draw.rect(screen, (200, 200, 200), (350, button_pos_y, 530, 60))
@@ -347,6 +364,13 @@ def start_screen():
     pygame.display.set_caption("Murky Gloom")
     screen = pygame.display.set_mode(SIZE)
 
+    # Возникла проблема в том, что почему-то
+    # звуки в pygame вызывают ошибку, если
+    # программа запущена на Linux, поэтому
+    # я сделал проверку на ОС. На всякий случай
+    # звук будет работать только на Windows (фича)
+    radio_available = sys.platform.startswith("win")
+
     buttons = [
         [pygame.rect.Rect(350, 230, 530, 60), (210, 200, 200), 'Start'],
         [pygame.rect.Rect(350, 320, 530, 60), (200, 200, 200), 'Shop'],
@@ -363,12 +387,17 @@ def start_screen():
             draw_text(screen, button[2], 1125, 695, font_size=25)
         else:
             draw_text(screen, button[2], 550, 245 + 90 * i)
-            # 245 = button[0][0].y + button[0][0].height // 4
+            # 245 == button[0][0].y + button[0][0].height // 4
 
-    radio = pygame.mixer.Sound('misc/sounds/music_in_menu.mp3')
-    radio.play()
-    radio.set_volume(0.1)
-    check_radio = True
+    radio = None
+    check_radio = None
+
+    if radio_available:
+        radio = pygame.mixer.Sound('misc/sounds/music_in_menu.mp3')
+        radio.play()
+        radio.set_volume(0.1)
+        check_radio = True
+
     clock = pygame.time.Clock()
 
     running = True
@@ -381,12 +410,14 @@ def start_screen():
                 for button in buttons:
                     if pygame.Rect.collidepoint(button[0], pygame.mouse.get_pos()):
                         if button[2] == "Start":
-                            radio.stop()
+                            if radio_available:
+                                radio.stop()
                             level_screen(screen)  # Отрисовываем меню с уровнями
                             return None
 
                         if button[2] == "Shop":
-                            radio.stop()
+                            if radio_available:
+                                radio.stop()
                             shop_screen(screen)
                             return None
 
@@ -395,18 +426,20 @@ def start_screen():
                             break
 
                         if button[2] == "Music":
-                            if check_radio:
-                                radio.stop()
-                                check_radio = False
-                            else:
-                                radio = pygame.mixer.Sound('misc/sounds/music_in_menu.mp3')
-                                radio.play()
-                                radio.set_volume(0.1)
-                                check_radio = True
+                            if radio_available:
+                                if check_radio:
+                                    radio.stop()
+                                    check_radio = False
+                                else:
+                                    radio = pygame.mixer.Sound('misc/sounds/music_in_menu.mp3')
+                                    radio.play()
+                                    radio.set_volume(0.1)
+                                    check_radio = True
 
         pygame.display.flip()
         clock.tick(100)
-    radio.stop()
+    if radio_available:
+        radio.stop()
 
 
 if __name__ == '__main__':
