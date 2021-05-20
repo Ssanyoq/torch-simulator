@@ -710,11 +710,18 @@ def main(level):
     running = True
     while running:
         if player.won:
+            if level in level_data.keys() and files_manager.check_if_completed(
+                    int(level_data[level]), level):
+                reward = 2  # Уровень уже пройден, так что награда меньше
+            else:
+                reward = 5
+
             level_data[level] = start_time
-            coins += 5
+            coins += reward
             files_manager.save_player_data(coins, player.torches, level_data)
-            menu.ending_screen(screen)
-            return None
+            menu.ending_screen(screen, reward=reward)
+            return
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 files_manager.save_player_data(coins, player.torches, level_data)

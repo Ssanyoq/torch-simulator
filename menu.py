@@ -294,13 +294,14 @@ def level_screen(menu_screen):
         pygame.display.flip()
 
 
-def ending_screen(screen, won=True, cur_level=None):
+def ending_screen(screen, won=True, cur_level=None, reward=5):
     """
     Менюшка, надписи на которой зависят от того,
     победил игрок или нет
     :param screen: экран
     :param won: победил или нет
     :param cur_level: название нынешнего уровня, нужно только
+    :param coins: сколько монет получил игрок
     для экрана поражения
     :return: None
     """
@@ -308,7 +309,7 @@ def ending_screen(screen, won=True, cur_level=None):
     pygame.draw.rect(screen, (152, 130, 199), (300, 180, 600, 360))
     if won:
         bold_text = 'You won!'
-        small_text = " " * 11 + '+ 5 coins'
+        small_text = " " * 11 + f'+ {reward} coins'
     else:
         bold_text = 'You lost'
         small_text = 'Better luck next time'
