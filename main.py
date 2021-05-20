@@ -304,12 +304,13 @@ class Player(Entity):
         # Переменная, показывающая, был ли персонаж в
         # воздухе кадр назад
         self.torch_placed = False
-        # Был ли поставлен торч
+        # Был ли поставлен торч (почему торч? всего лишь сладко дунул)
 
         self.frame = 0
         self.animation_before = None
         # Переменная, где показывается, какая анимация была в
         # прошлый вызов функции update
+
         self.idle_right = AnimatedSprite(load_image('entities/player/idle.png'), 4, 1, 50, 50)
         self.jump_r = AnimatedSprite(load_image("entities/player/jump.png"), 6, 1, 50, 50)
         self.run_r = AnimatedSprite(load_image("entities/player/run.png"), 6, 1, 50, 50)
@@ -427,6 +428,7 @@ class Player(Entity):
                     self.idle_left.update(x, y, self.frame // 4)
 
         else:
+            self.torch_placed = False
             if self.delta_y < 0:
                 # Прыгает
                 if self.animation_before != 'jump':
@@ -531,7 +533,7 @@ class Platform(pygame.sprite.Sprite):
         # Для мыгмы (мамы)
 
     def generate_pebbles(self, k):
-        """Генерирует k камешков"""
+        """Генерирует k камешков для платформы"""
         for i in range(k):
             width = height = random.randint(5, 10)
             pos_x = random.randint(1, self.size_x - width - 1)
