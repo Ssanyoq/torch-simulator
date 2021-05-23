@@ -39,12 +39,14 @@ darkness_radius = 180
 
 air_blocks = []
 torches = []
-player = None  # Чтобы пичярм не жаловался
+player = None  # Чтобы IDE не жаловалась
 
 
 def convert_level(level, path='misc/levels'):
-    # Функция открывает текстовый файл, в котором содержатся необходимые игровые элементы
-    # после чего создает список этих элементов(платформы, монстры и т.д)
+    """
+    Функция открывает текстовый файл, в котором содержатся необходимые игровые элементы
+    после чего создает список этих элементов(платформы, монстры и т.д)
+    """
     with open(f"""{path}/{level}.txt""", encoding='utf-8') as f:
         data = f.readlines()
 
@@ -174,6 +176,9 @@ def load_image(name, color_key=None):
 
 
 def clear_stuff():
+    """
+    Чистит всякие вещи после игры
+    """
     global obstacles, player, entities, enemies, all_sprites, platforms, air_blocks, \
         light_sources, torches
     player = None
@@ -198,6 +203,7 @@ def change_color(color, center_x, center_y, light_x,
     :param center_y: y предмета
     :param light_x: x источника света
     :param light_y: y источника света
+    Лучше указывать x и у центра объекта
     :param brightness_level: настоящий
     уровень освещенности предмета
     :return: новый цвет и уровень освещенности
@@ -243,6 +249,10 @@ class AnimatedSprite(pygame.sprite.Sprite):
                 self.frames[i] = pygame.transform.flip(frame, True, False)
 
     def cut_sheet(self, sheet, columns, rows):
+        """
+        Режет изображение sheet на отдельные картинки и
+        помещает их в self.frames
+        """
         self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
                                 sheet.get_height() // rows)
         for j in range(rows):
@@ -261,14 +271,12 @@ class AnimatedSprite(pygame.sprite.Sprite):
 
 
 class Entity(pygame.sprite.Sprite):
-    def __init__(self, size_x, size_y, x, y, texture=None, is_collide=True, health=None):
+    def __init__(self, size_x, size_y, x, y, texture=None, is_collide=True):
         # texture - название файла, как в load_image
         super().__init__(entities)
         self.size = self.size_x, self.size_y = size_x, size_y
         self.position = self.x, self.y = x, y
-        self.health = health
         self.is_collide = is_collide
-        self.is_immortal = False
         self.is_onground = False
         self.moving_velocity = 5
 
@@ -282,13 +290,10 @@ class Entity(pygame.sprite.Sprite):
             self.rect = self.image.get_rect()
             self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
 
-        if health is None:
-            self.is_immortal = True
-
 
 class Player(Entity):
-    def __init__(self, size_x, size_y, x, y, texture=None, is_collide=True, health=None, torches=0):
-        super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True, health=100)
+    def __init__(self, size_x, size_y, x, y, torches=0):
+        super().__init__(size_x, size_y, x, y)
         self.jump_force = 15
         self.vel_y = GRAVITY_FORCE
         self.facing = 1
@@ -299,10 +304,14 @@ class Player(Entity):
         self.is_dead = False
 
         self.delta_x, self.delta_y = 0, 0
+
         self.torches = torches
+        # Количество факелов у игрока
+
         self.was_flying = False
         # Переменная, показывающая, был ли персонаж в
         # воздухе кадр назад
+
         self.torch_placed = False
         # Был ли поставлен торч (почему торч? всего лишь сладко дунул)
 
@@ -311,16 +320,17 @@ class Player(Entity):
         # Переменная, где показывается, какая анимация была в
         # прошлый вызов функции update
 
+        # Загрузка и резка анимаций
         self.idle_right = AnimatedSprite(load_image('entities/player/idle.png'), 4, 1, 50, 50)
         self.jump_r = AnimatedSprite(load_image("entities/player/jump.png"), 6, 1, 50, 50)
         self.run_r = AnimatedSprite(load_image("entities/player/run.png"), 6, 1, 50, 50)
         self.place_r = AnimatedSprite(load_image("entities/player/placing.png"), 6, 1, 50, 50)
 
+        # Та же загрузка, просто с разворотом
         self.idle_left = AnimatedSprite(
             load_image('entities/player/idle.png'), 4, 1, 50, 50, True)
         self.jump_l = AnimatedSprite(
             load_image("entities/player/jump.png"), 6, 1, 50, 50, True)
-
         self.run_l = AnimatedSprite(
             load_image("entities/player/run.png"), 6, 1, 50, 50, True)
         self.place_l = AnimatedSprite(load_image('entities/player/placing.png'), 6, 1, 50, 50, True)
@@ -355,33 +365,38 @@ class Player(Entity):
 
         for platform in platforms:
 
+            # Проверка на столкновение по x
             tmp_rect.y = self.rect.y
             tmp_rect.x = self.rect.x + self.delta_x
 
             if platform.rect.colliderect(tmp_rect):
                 self.delta_x = 0
 
+            # Проверка на столкновение по y
             tmp_rect.x = self.rect.x
             tmp_rect.y = self.rect.y + self.delta_y
 
             if platform.rect.colliderect(tmp_rect):
-                # Проверка на столкновение по y
+
                 if platform.kill_if_touched:
                     self.is_dead = True
                 if self.vel_y < 0:
-                    # Если летит вверх
+                    # Значит летит вверх
                     self.delta_y = platform.rect.bottom - self.rect.top
                     self.vel_y = 0
                 else:
-                    # Если летит вниз
+                    # Значит летит вниз
                     self.delta_y = platform.rect.top - self.rect.bottom
                     self.vel_y = 0
                     self.is_onground = True
             else:
                 self.in_air = True
         x, y = self.rect.x, self.rect.y
+
         # Анимации
+
         if self.is_onground:
+            # Значит игрок на поверхности
             self.in_air = False
             if self.torch_placed:
                 if self.animation_before != 'placing':
@@ -468,22 +483,25 @@ class Player(Entity):
             self.was_flying = True
 
     def get_coord(self):
+        """
+        :return: x, y персонажа
+        """
         return self.rect.x, self.rect.y
 
     def try_placing_torch(self):
         if not self.in_air and self.torches > 0:
             if self.facing == 1:
-                torch = Torch(self.rect.bottomright[0] - 3, self.rect.bottomright[1])
+                Torch(self.rect.bottomright[0] - 3, self.rect.bottomright[1])
             else:
-                torch = Torch(self.rect.bottomleft[0] + 3, self.rect.bottomleft[1])
+                Torch(self.rect.bottomleft[0] + 3, self.rect.bottomleft[1])
             self.torch_placed = True
             self.torches -= 1
 
 
 class Enemy(Entity):
     def __init__(self, size_x, size_y, x, y, max_length_right, max_length_left,
-                 texture=None, is_collide=True, health=None):
-        super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True, health=100)
+                 texture=None):
+        super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True)
         self.start_x = x
         self.facing = 1
         self.moving_velocity -= 3
@@ -492,7 +510,9 @@ class Enemy(Entity):
         self.killed_player = False
 
     def update(self):
-        """ Обновляем пещерных злодеев """
+        """
+        Обновляет пещерного злодея
+        """
         if self.to_left_border <= 0 and self.facing == -1:
             self.facing = 1
         elif self.to_right_border <= 0 and self.facing == 1:
@@ -505,16 +525,21 @@ class Enemy(Entity):
         for platform in platforms:
             if pygame.sprite.collide_rect(self, platform) and self != platform:
                 self.facing *= -1
+        # noinspection PyUnresolvedReferences
         if self.rect.colliderect(player.rect):
             self.killed_player = True
 
     def draw(self, screen):
-        """ Рисуем пещерных злодеев """
+        """
+        Рисует пещерного злодея на screen
+        """
         pygame.draw.rect(screen, (44, 3, 9), self.rect)
 
 
 class Platform(pygame.sprite.Sprite):
-    """Наследуется от sprite только для того, чтобы камера работала"""
+    """
+    Наследуется от sprite только для того, чтобы камера работала
+    """
 
     def __init__(self, size_x, size_y, x, y, color=(255, 255, 255), pebble_color=(50, 50, 50),
                  pebble_amount=2):
@@ -525,7 +550,7 @@ class Platform(pygame.sprite.Sprite):
         self.pebble_color = pebble_color
         self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
         self.static_brightness = 0
-        # Переменная, где записан уровень освещенности от статичных
+        # ^ Переменная, где записан уровень освещенности от статичных
         # источников света (факелов)
         self.pebbles = []
         self.generate_pebbles(pebble_amount)
@@ -533,7 +558,9 @@ class Platform(pygame.sprite.Sprite):
         # Для мыгмы (мамы)
 
     def generate_pebbles(self, k):
-        """Генерирует k камешков для платформы"""
+        """
+        Генерирует k камешков для платформы
+        """
         for i in range(k):
             width = height = random.randint(5, 10)
             pos_x = random.randint(1, self.size_x - width - 1)
@@ -545,7 +572,11 @@ class Platform(pygame.sprite.Sprite):
             self.pebbles.append(pebble_rect)
 
     def draw(self, screen):
-        """ Рисуем платформы """
+        """
+        Рисует платформу с камешками на screen
+        """
+        # noinspection PyUnresolvedReferences
+        # Чтобы IDE не жаловался на player.rect
         tmp_color, brightness = change_color(self.color, self.rect.centerx, self.rect.centery,
                                              player.rect.centerx, player.rect.centery,
                                              self.static_brightness)
@@ -572,15 +603,34 @@ class Magma(Platform):
 
 
 class Camera:
+    # noinspection PyUnresolvedReferences
+    # Чтобы IDE не жаловался на player.rect
     def __init__(self):
         self.x = -player.rect.x + SIZE_X // 2
         self.y = -player.rect.y + SIZE_Y // 2
 
     def apply(self, obj):
+        """
+        Изменяет положение объекта относительно
+        положения камеры
+
+        :param obj: объект, унаследованный от pygame.sprite.Sprite
+        """
         obj.rect.x += self.x
         obj.rect.y += self.y
 
     def update(self, target):
+        """
+        Обновляет положение камеры относительно положения target
+
+        :param target: объект, унаследованный от pygame.sprite.Sprite,
+                        используется для Player
+        """
+
+        # Тут максимально умная штуковина, она держит target так, чтобы она не
+        # выходила за рамки экрана, да еще и сохраняла расcтояние в 200
+        # пикселей до границ по X и 120 по Y
+
         if target.rect.centerx + target.delta_x > SIZE_X - 200 - self.x or \
                 target.rect.centerx + target.delta_x < 0 - self.x + 120:
             self.x = -target.delta_x
@@ -603,11 +653,14 @@ class Air(pygame.sprite.Sprite):
         self.size_x, self.size_y = size_x, size_y
         self.x, self.y = x, y
         self.static_brightness = 0
+        # ^ Переменная, где записан уровень освещенности от статичных
+        # источников света (факелов)
         self.color = color
         self.finish = finish
         self.rect = pygame.Rect(self.x, self.y, self.size_x, self.size_y)
         air_blocks.append(self)
 
+    # noinspection PyUnresolvedReferences
     def draw(self, screen):
         """ Рисуем газообразное вещество, составляющее атмосферу Земли """
         if self.rect.colliderect(player.rect) and self.finish:
@@ -743,12 +796,14 @@ def main(level):
 
             if event.type == pygame.MOUSEBUTTONDOWN and not paused:
                 if event.button == 3:
+                    # ПКМ, а значит надо попытаться поставить торч
                     player.try_placing_torch()
 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 paused = not paused
 
-        if not paused:  # Если игра не на паузе отрисовываем главную сцену, иначе меню паузы
+        if not paused:
+            # Если игра не на паузе, то рисуется главная сцена
             screen.fill((0, 0, 0))
 
             for platform in platforms:
@@ -783,13 +838,14 @@ def main(level):
                 return None
 
         else:
+            # Игра на паузе, а значит надо рисовать меню паузы
             button_pos_y = 300
             up, left, right = False, False, False
             buttons = []
-            # Список вида [[rect кнопки, функция, которой соответствует эта кнопка]]
+            # Список вида [[<rect кнопки>, <функция, которой соответствует эта кнопка>]]
             # Вернется в меню, если было нажатие на кнопку с индексом 5
             # Можно было сделать просто если индекс == чему-то, то что-то вызвать,
-            # но тогда неуниверсально
+            # но тогда не универсально
 
             for i in range(2):
                 button = pygame.draw.rect(screen, (210, 210, 210), (350, button_pos_y, 530, 60))
@@ -813,6 +869,7 @@ def main(level):
                     break
 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
+                    # Кнопочки проверить надо
                     if event.button == 1:
                         for button in buttons:
                             if pygame.Rect.collidepoint(button[0], pygame.mouse.get_pos()):
