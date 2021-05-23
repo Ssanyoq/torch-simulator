@@ -63,7 +63,7 @@ def load_player_data(file='misc/playerdata.txt'):
     пользователь запустил уровень и хранится в
     количестве секунд с начала эпохи
     :param file:
-    :return: (<кол-во монет>, <кол-во факелов>, {<название уровня>:<дата прохождения>})
+    :return: (<кол-во монет>, <кол-во факелов>, {<название уровня>: <дата прохождения>})
 
     Если файл пустой или его не существует,
     то все будет работать тоже
@@ -95,7 +95,7 @@ def load_player_data(file='misc/playerdata.txt'):
     return coins, torches, levels_data
 
 
-def save_player_data(coins=0, torches=0, levels_data={}, file='misc/playerdata.txt'):
+def save_player_data(coins=0, torches=0, levels_data=None, file='misc/playerdata.txt'):
     """
     Полностью противоположная load_player_data
     функция
@@ -105,6 +105,8 @@ def save_player_data(coins=0, torches=0, levels_data={}, file='misc/playerdata.t
     :param file: относительный путь до файла, куда надо загрузить
     :return: None
     """
+    if levels_data is None:
+        levels_data = {}
     file_data = f"{str(coins)}\n{str(torches)}"
     for key in levels_data.keys():
         file_data += f"\n{key}/{str(levels_data[key])}"
@@ -119,7 +121,7 @@ def save_player_data(coins=0, torches=0, levels_data={}, file='misc/playerdata.t
 
 def check_if_completed(completing_time, file, path='misc/levels/', extension='.txt'):
     """
-    Проверяет,пройден уровень или нет
+    Проверяет, пройден уровень или нет
     Если последнее
     """
     change = last_change(path + file + extension)
