@@ -38,11 +38,12 @@ def draw_texts(screen, text, pos_x, pos_y, text_delta=0, color='White', font_siz
     :param pos_y: y первого текста
     :param pos_x: x всех текстов
     :param text_delta: какое расстояние должно быть между текстами
+                        (по оси Y)
     :param color: необязательный параметр, текст будет цвета color
     :param font_size: необязательный параметр, текст будет размера font_size
     :return: None
     """
-    for line in text:  # Отрисовка текст
+    for line in text:  # Отрисовка текста
 
         draw_text(screen, line, pos_x, pos_y, color=color, font_size=font_size)
         pos_y += text_delta
@@ -57,13 +58,22 @@ def get_levels_names(folder='misc/levels'):
     level_names = []
     for (dir_path, dir_names, filenames) in os.walk(folder):
         for filename in filenames:
-            if filename.split('.')[1] == 'txt':
+            if "." not in filename:
+                # Бывают файлы без расширения
+                # и они вызвали бы ошибку ниже
+                continue
+            elif filename.split('.')[1] == 'txt':
                 # Проверка на .txt
                 level_names.append(filename.split('.')[0])
     return level_names
 
 
 def save_data(coins, torches, levels, is_changed):
+    """
+    Небольшая надстройка над функцией сохранения из
+    files_manager, сделана в том числе для возможности
+    улучшения игры
+    """
     if not is_changed:
         return None
     files_manager.save_player_data(coins, torches, levels)
@@ -80,17 +90,21 @@ def check_os():
     # я сделал проверку на ОС. На всякий случай
     # звук будет работать только на Windows (фича)
 
-    return sys.platform.startswith("win")
+    # Проблемы, походу, не с башкой, а с самим pygame
+
+    return sys.platform.startswith("win")  # Windows - win32
 
 
 def get_current_levels(all_levels, page):
     """
+    Возвращает названия кнопок и названия уровней
+
     :param all_levels: список с названиями всех уровней
     :param page: номер страницы, нумерация с 0
 
     :return: картеж с 2-мя списками:
-    первый список - названия кнопок,
-    второй - названия самих файлов с уровнями
+    первый список - названия самих файлов с уровнями,
+    второй - названия кнопок
     Названия кнопок - это просто названия файлов,
     начинающиеся с заглавной буквы и
     все '_' заменены на ' '
@@ -98,19 +112,26 @@ def get_current_levels(all_levels, page):
     Если page больше, чем
     math.ceil(len(all_levels) / 5), то
     просто вернет ([],[])
-    (прикольный смайлик кстати)
+    (прикольный смайлик кстати ([],[]))
     """
     current_levels = all_levels[page * 5:(page + 1) * 5]
     current_namings = []
     for name in current_levels:
         new_name = name.replace("_", " ").capitalize()
         if len(new_name) > 20:
+            # Название длиннее 20 символов,
+            # а значит его надо обрезать
             new_name = new_name[:20] + '...'
         current_namings.append(new_name)
     return current_levels, current_namings
+    # ([],[])
 
 
 def shop_screen(screen):
+    """
+    Меню с магазином, где можно купить факелы
+    за монеты
+    """
     screen.fill((0, 0, 0))
 
     button_pos_y = 250
@@ -171,6 +192,9 @@ def shop_screen(screen):
 
 
 def level_screen(menu_screen):
+    """
+    Меню для выбора уровня
+    """
     menu_screen.fill((0, 0, 0))
 
     # Создание кнопок
@@ -205,6 +229,7 @@ def level_screen(menu_screen):
         else:
             if current_levels[i] in levels_data.keys() and files_manager.check_if_completed(
                     levels_data[current_levels[i]], current_levels[i]):
+                # Значит уровень пройден и надо это написать
                 buttons.append([button, current_levels[i], True])
             else:
                 buttons.append([button, current_levels[i], False])
@@ -225,6 +250,7 @@ def level_screen(menu_screen):
     # Переменная чтобы красивее было
     for button in buttons:
         if button[2]:
+            # Значит этот уровень пройден
             draw_text(menu_screen, "Completed", 790, button[0].y + 20, color="Green", font_size=25)
 
     running = True
@@ -299,11 +325,10 @@ def ending_screen(screen, won=True, cur_level=None, reward=5):
     Менюшка, надписи на которой зависят от того,
     победил игрок или нет
     :param screen: экран
-    :param won: победил или нет
+    :param won: победил или нет (bool)
     :param cur_level: название нынешнего уровня, нужно только
-    :param coins: сколько монет получил игрок
-    для экрана поражения
-    :return: None
+                        для экрана поражения
+    :param reward: сколько монет получил игрок
     """
     retry_button = None
     pygame.draw.rect(screen, (152, 130, 199), (300, 180, 600, 360))
@@ -327,12 +352,15 @@ def ending_screen(screen, won=True, cur_level=None, reward=5):
                 running = False
                 main.clear_stuff()
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                # Нажат кнопка с крестиком
                 if quit_button.collidepoint(pygame.mouse.get_pos()):
                     main.clear_stuff()
                     start_screen()
                     return None
                 if not won:
+                    # Только если пользователь проиграл
                     if retry_button.collidepoint(pygame.mouse.get_pos()):
+                        # Нажата кнопка retry
                         main.clear_stuff()
                         main.main(cur_level)
                         return None
@@ -343,7 +371,7 @@ def ending_screen(screen, won=True, cur_level=None, reward=5):
 def info_gui(screen, coins, torches):
     """
     Рисует маленький gui, где показано количество монет
-    и торчей
+    и факелов
     :param screen: экран для рисования
     :param coins: сколько монет
     :param torches: сколько торчей
@@ -351,16 +379,24 @@ def info_gui(screen, coins, torches):
     """
     pygame.draw.rect(screen, (184, 184, 184), (1100, 620, 98, 98))
     # Фон
+
     pygame.draw.rect(screen, (255, 156, 50), (1120, 640, 3, 3))
     pygame.draw.rect(screen, (50, 50, 50), (1120, 643, 3, 10))
     # Факел
+
     pygame.draw.circle(screen, (211, 183, 58), (1125, 687), 10)
+    # Монетка
+
     draw_text(screen, torches, 1150, 640, font_size=25)
     draw_text(screen, coins, 1150, 680, font_size=25)
-    # Тексты
+    # Тексты (кол-во монеток и факелов)
 
 
 def start_screen():
+    """
+    Основное меню, где можно выйти из игры,
+    войти в магазин или в меню выбора уровней
+    """
     pygame.init()
     pygame.display.set_caption("Murky Gloom")
     screen = pygame.display.set_mode(SIZE)
@@ -370,7 +406,7 @@ def start_screen():
     # программа запущена на Linux, поэтому
     # я сделал проверку на ОС. На всякий случай
     # звук будет работать только на Windows (фича)
-    radio_available = sys.platform.startswith("win")
+    radio_available = check_os()
 
     buttons = [
         [pygame.rect.Rect(350, 230, 530, 60), (210, 200, 200), 'Start'],
@@ -388,7 +424,7 @@ def start_screen():
             draw_text(screen, button[2], 1125, 695, font_size=25)
         else:
             draw_text(screen, button[2], 550, 245 + 90 * i)
-            # 245 == button[0][0].y + button[0][0].height // 4
+            # 245 - это button[0][0].y + button[0][0].height // 4
 
     radio = None
     check_radio = None
@@ -413,20 +449,24 @@ def start_screen():
                         if button[2] == "Start":
                             if radio_available:
                                 radio.stop()
-                            level_screen(screen)  # Отрисовываем меню с уровнями
+                            level_screen(screen)
+                            # Отрисовываем меню с уровнями
                             return None
 
                         if button[2] == "Shop":
                             if radio_available:
                                 radio.stop()
                             shop_screen(screen)
+                            # Перекидывает на меню магазина
                             return None
 
                         if button[2] == "Exit":
+                            # Просто выкидывает из игры
                             running = False
                             break
 
                         if button[2] == "Music":
+                            # Выключает музыку
                             if radio_available:
                                 if check_radio:
                                     radio.stop()
