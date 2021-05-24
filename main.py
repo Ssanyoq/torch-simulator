@@ -118,8 +118,7 @@ def convert_level(level, path='misc/levels'):
                         break
                 if not stopped:
                     max_path_right = (len(row) - k) * 30
-                enemy = Enemy(30, 30, x, y, max_path_right, max_path_left,
-                              texture='textures/platform.jpeg')
+                enemy = Enemy(30, 30, x, y, max_path_right, max_path_left)
                 enemies.append(enemy)
                 all_sprites.add(enemy)
 
