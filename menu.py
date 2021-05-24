@@ -65,6 +65,7 @@ def get_levels_names(folder='misc/levels'):
             elif filename.split('.')[1] == 'txt':
                 # Проверка на .txt
                 level_names.append(filename.split('.')[0])
+    level_names = sorted(level_names, key=lambda x: x.capitalize().replace("_", " "))
     return level_names
 
 
@@ -432,7 +433,7 @@ def start_screen():
     if radio_available:
         radio = pygame.mixer.Sound('misc/sounds/music_in_menu.mp3')
         radio.play()
-        radio.set_volume(0.1)
+        radio.set_volume(0.02)  # громко :(
         check_radio = True
 
     clock = pygame.time.Clock()
@@ -474,7 +475,7 @@ def start_screen():
                                 else:
                                     radio = pygame.mixer.Sound('misc/sounds/music_in_menu.mp3')
                                     radio.play()
-                                    radio.set_volume(0.1)
+                                    radio.set_volume(0.02)
                                     check_radio = True
 
         pygame.display.flip()
