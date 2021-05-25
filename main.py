@@ -23,9 +23,10 @@ BRIGHTNESS_INFO = {
 # и второе число - сколько надо отнять от r,g,b начального цвета
 
 PLATFORM_COLOR = (86, 72, 57)
-# Цвет платформы при максимальном освещении
 AIR_COLOR = (71, 57, 11)
 FINISH_COLOR = (81, 59, 128)
+ENEMY_COLOR = (183, 123, 102)
+# Цвет при максимальном освещении
 
 obstacles = pygame.sprite.Group()
 entities = pygame.sprite.Group()
@@ -250,13 +251,7 @@ def change_color_moving(color, rect, player_rect):
         distance = ((centerx - upper_centerx) ** 2 + (centery - upper_centery) ** 2) ** 0.5
         distances.append(distance)
     closest = min(distances)
-    for i in BRIGHTNESS_INFO.keys():
-        if closest <= BRIGHTNESS_INFO[i][0]:
-            brightness = i
-            delta = BRIGHTNESS_INFO[i][0]
-            break
-    else:
-        return 0, 0, 0
+    delta = closest - 25
     color = [i - delta for i in color]
     color = [0 if i < 0 else i for i in color]
     return color
@@ -536,7 +531,7 @@ class Player(Entity):
 
 class Enemy(Entity):
     def __init__(self, size_x, size_y, x, y, max_length_right, max_length_left,
-                 texture=None):
+                 texture=None, color=ENEMY_COLOR):
         super().__init__(size_x, size_y, x, y, texture=texture, is_collide=True)
         self.start_x = x
         self.facing = 1
@@ -544,7 +539,7 @@ class Enemy(Entity):
         self.to_left_border = max_length_left
         self.to_right_border = max_length_right
         self.killed_player = False
-        self.color = (201,101,39)
+        self.color = color
 
     def update(self):
         """
