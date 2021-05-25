@@ -60,7 +60,7 @@ def convert_level(level, path='misc/levels'):
     # Чтобы края закрывать красивым чем-нибудь
 
     for i in range(5):
-        # Сделано для красивых краев, чтобы не было белых частей
+        # Сделано для красивых краев
         for _ in range(max_string_length + 3):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
@@ -71,7 +71,7 @@ def convert_level(level, path='misc/levels'):
 
     max_path_left, max_path_right = 0, 0
     for i, row in enumerate(level):
-        for j in range(3):
+        for j in range(7):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
             platforms_list.append(platform)
@@ -136,7 +136,7 @@ def convert_level(level, path='misc/levels'):
                 decorations.append(air)
             x += 30
 
-        for j in range(max_string_length + 3 - (len(row) + 3)):
+        for j in range(max_string_length + 7 - (len(row) + 3)):
             platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
             all_sprites.add(platform)
             platforms_list.append(platform)
@@ -233,6 +233,16 @@ def change_color(color, center_x, center_y, light_x,
             new_color = [0, 0, 0]
 
     return new_color, brightness_level
+
+
+def at_screen(rect):
+    """
+    :param rect: rect
+    :return: True, если rect хотя бы на пиксель
+        находится на экране и False, если нет
+    """
+    return (SIZE_Y >= rect.bottom >= 0 or SIZE_Y >= rect.top >= 0) and \
+           (SIZE_X >= rect.left >= 0 or SIZE_X >= rect.right >= 0)
 
 
 class AnimatedSprite(pygame.sprite.Sprite):
@@ -715,6 +725,23 @@ class Torch(pygame.sprite.Sprite):
         pygame.draw.rect(surface, self.bottom_color, self.bottom_rect)
         pygame.draw.rect(surface, self.upper_color, self.upper_rect)
 
+    def get_bottom_rect(self):
+        """
+        :return: актуальный bottom_rect
+        """
+        return pygame.Rect(self.rect.x - self.rect.width,
+                           self.rect.y - self.rect.height,
+                           self.rect.width, self.rect.height)
+
+    def get_upper_rect(self):
+        """
+        :return: актуальный upper_rect
+        """
+        return pygame.Rect(self.bottom_rect.x,
+                           self.bottom_rect.y - self.bottom_rect.width,
+                           self.bottom_rect.width, self.bottom_rect.width
+                           )
+
     def change_static_light(self):
         """ Меняет статическое освещение у платформ """
         for platform in platforms:
@@ -806,17 +833,21 @@ def main(level):
             screen.fill((0, 0, 0))
 
             for platform in platforms:
-                platform.draw(screen)
+                if at_screen(platform.rect):
+                    platform.draw(screen)
 
             for decorative in decorations:
-                decorative.draw(screen)
+                if at_screen(decorative.rect):
+                    decorative.draw(screen)
 
             for torch in torches:
-                torch.draw(screen)
+                if at_screen(torch.get_bottom_rect()) or at_screen(torch.get_upper_rect()):
+                    torch.draw(screen)
             is_dead = False
             for enemy in enemies:
                 enemy.update()
-                enemy.draw(screen)
+                if at_screen(enemy.rect):
+                    enemy.draw(screen)
                 if enemy.killed_player:
                     is_dead = True
                     break
