@@ -235,6 +235,33 @@ def change_color(color, center_x, center_y, light_x,
     return new_color, brightness_level
 
 
+def change_color_moving(color, rect, player_rect):
+    """Изменяет цвет, для двигающихся объектов"""
+    centerx, centery = rect.centerx, rect.centery
+    player_centerx, player_centery = player_rect.centerx, player_rect.centery
+
+    distances = []
+    distances.append(((centerx - player_centerx) ** 2 + (
+            centery - player_centery) ** 2) ** 0.5)  # Дистанция до игрока
+    for torch in torches:
+        upper_rect = torch.get_upper_rect()
+        upper_centerx = upper_rect.centerx
+        upper_centery = upper_rect.centery
+        distance = ((centerx - upper_centerx) ** 2 + (centery - upper_centery) ** 2) ** 0.5
+        distances.append(distance)
+    closest = min(distances)
+    for i in BRIGHTNESS_INFO.keys():
+        if closest <= BRIGHTNESS_INFO[i][0]:
+            brightness = i
+            delta = BRIGHTNESS_INFO[i][0]
+            break
+    else:
+        return 0, 0, 0
+    color = [i - delta for i in color]
+    color = [0 if i < 0 else i for i in color]
+    return color
+
+
 def at_screen(rect):
     """
     :param rect: rect
@@ -517,6 +544,7 @@ class Enemy(Entity):
         self.to_left_border = max_length_left
         self.to_right_border = max_length_right
         self.killed_player = False
+        self.color = (201,101,39)
 
     def update(self):
         """
@@ -542,7 +570,8 @@ class Enemy(Entity):
         """
         Рисует пещерного злодея на screen
         """
-        pygame.draw.rect(screen, (44, 3, 9), self.rect)
+        color = change_color_moving(self.color, self.rect, player.rect)
+        pygame.draw.rect(screen, color, self.rect)
 
 
 class Platform(pygame.sprite.Sprite):
@@ -725,7 +754,7 @@ class Torch(pygame.sprite.Sprite):
         pygame.draw.rect(surface, self.bottom_color, self.bottom_rect)
         pygame.draw.rect(surface, self.upper_color, self.upper_rect)
 
-    def get_bottom_rect(self):
+    def get_bottom_rect(self) -> pygame.Rect:
         """
         :return: актуальный bottom_rect
         """
@@ -733,7 +762,7 @@ class Torch(pygame.sprite.Sprite):
                            self.rect.y - self.rect.height,
                            self.rect.width, self.rect.height)
 
-    def get_upper_rect(self):
+    def get_upper_rect(self) -> pygame.Rect:
         """
         :return: актуальный upper_rect
         """
