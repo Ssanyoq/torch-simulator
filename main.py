@@ -160,6 +160,13 @@ def convert_level(level, path='misc/levels'):
 
 
 def load_image(name, color_key=None):
+    """
+    Возвращает картинку
+    :param name: название файла, относительный путь от папки misc,
+                например, entities/player/idle.png
+    :param color_key: color key
+    :return: картинка, полученная через pygame.image.load
+    """
     # Функция для загрузки текстур, name - название файла с папкой,
     # например, 'textures/icon.png
     fullname = os.path.join('misc', name)
@@ -177,7 +184,7 @@ def load_image(name, color_key=None):
 
 def clear_stuff():
     """
-    Чистит всякие вещи после игры
+    Чистит всякие вещи, которые заполняются за игру
     """
     global obstacles, player, entities, enemies, all_sprites, platforms, air_blocks, \
         light_sources, torches
@@ -241,7 +248,7 @@ def change_color_moving(color, rect, player_rect):
     centerx, centery = rect.centerx, rect.centery
     player_centerx, player_centery = player_rect.centerx, player_rect.centery
 
-    distances = []
+    distances = list()
     distances.append(((centerx - player_centerx) ** 2 + (
             centery - player_centery) ** 2) ** 0.5)  # Дистанция до игрока
     for torch in torches:
@@ -251,7 +258,7 @@ def change_color_moving(color, rect, player_rect):
         distance = ((centerx - upper_centerx) ** 2 + (centery - upper_centery) ** 2) ** 0.5
         distances.append(distance)
     closest = min(distances)
-    delta = closest - 25
+    delta = closest - 25  # на сколько изменить R, G и B входного цвета
     color = [i - delta for i in color]
     color = [0 if i < 0 else i for i in color]
     return color
@@ -323,7 +330,7 @@ class Entity(pygame.sprite.Sprite):
 
 
 class Player(Entity):
-    def __init__(self, size_x, size_y, x, y, torches=0):
+    def __init__(self, size_x, size_y, x, y, torches_amount=0):
         super().__init__(size_x, size_y, x, y)
         self.jump_force = 15
         self.vel_y = GRAVITY_FORCE
@@ -336,7 +343,7 @@ class Player(Entity):
 
         self.delta_x, self.delta_y = 0, 0
 
-        self.torches = torches
+        self.torches = torches_amount
         # Количество факелов у игрока
 
         self.was_flying = False
@@ -561,12 +568,13 @@ class Enemy(Entity):
         if self.rect.colliderect(player.rect):
             self.killed_player = True
 
-    def draw(self, screen):
+    def draw(self, game_screen):
         """
         Рисует пещерного злодея на screen
         """
+        # noinspection PyUnresolvedReferences
         color = change_color_moving(self.color, self.rect, player.rect)
-        pygame.draw.rect(screen, color, self.rect)
+        pygame.draw.rect(game_screen, color, self.rect)
 
 
 class Platform(pygame.sprite.Sprite):
@@ -604,7 +612,7 @@ class Platform(pygame.sprite.Sprite):
             pebble_rect = pygame.Rect(pos_x, pos_y, width, height)
             self.pebbles.append(pebble_rect)
 
-    def draw(self, screen):
+    def draw(self, game_screen):
         """
         Рисует платформу с камешками на screen
         """
@@ -613,7 +621,7 @@ class Platform(pygame.sprite.Sprite):
         tmp_color, brightness = change_color(self.color, self.rect.centerx, self.rect.centery,
                                              player.rect.centerx, player.rect.centery,
                                              self.static_brightness)
-        pygame.draw.rect(screen, tmp_color, self.rect)
+        pygame.draw.rect(game_screen, tmp_color, self.rect)
         if brightness != 0:
             delta = BRIGHTNESS_INFO[brightness][1]
             pebble_color = [self.pebble_color[0] - delta, self.pebble_color[1] - delta,
@@ -624,7 +632,7 @@ class Platform(pygame.sprite.Sprite):
         for pebble in self.pebbles:
             pebble_rect = pygame.Rect(pebble.x + self.rect.x, pebble.y + self.rect.y,
                                       pebble.width, pebble.height)
-            pygame.draw.rect(screen, pebble_color, pebble_rect)
+            pygame.draw.rect(game_screen, pebble_color, pebble_rect)
 
 
 class Magma(Platform):
@@ -694,14 +702,14 @@ class Air(pygame.sprite.Sprite):
         air_blocks.append(self)
 
     # noinspection PyUnresolvedReferences
-    def draw(self, screen):
+    def draw(self, game_screen):
         """ Рисуем газообразное вещество, составляющее атмосферу Земли """
         if self.rect.colliderect(player.rect) and self.finish:
             player.won = True
         tmp_color, brightness = change_color(self.color, self.rect.centerx, self.rect.centery,
                                              player.rect.centerx, player.rect.centery,
                                              self.static_brightness)
-        pygame.draw.rect(screen, tmp_color, self.rect)
+        pygame.draw.rect(game_screen, tmp_color, self.rect)
 
 
 class Torch(pygame.sprite.Sprite):
@@ -783,6 +791,7 @@ class Torch(pygame.sprite.Sprite):
 
 
 def main(level):
+    # noinspection PyGlobalUndefined
     global platforms, player, screen
     pygame.init()
 
@@ -791,7 +800,7 @@ def main(level):
 
     platforms, decorations, player_x, player_y = convert_level(level)
     coins, torches_amount, level_data = files_manager.load_player_data()
-    player = Player(20, 50, player_x, player_y, torches=torches_amount)
+    player = Player(20, 50, player_x, player_y, torches_amount=torches_amount)
     all_sprites.add(player)
     start_time = time.time()
     # start_time - время, которое будет считаться как
@@ -875,6 +884,7 @@ def main(level):
                 if enemy.killed_player:
                     is_dead = True
                     break
+            # Теперь рисуются только объекты, находящиеся на экране
 
             player.update(left, right, up)
             camera.update(player)
