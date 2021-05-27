@@ -78,7 +78,7 @@ def convert_level(level, path='misc/levels'):
             platforms_list.append(platform)
             x += 30
         for k, element in enumerate(row):
-            if element == "-":
+            if element == "-" or element == "—":
                 platform = Platform(30, 30, x, y, color=PLATFORM_COLOR)
                 # obstacles.add(platform)
                 platforms_list.append(platform)
